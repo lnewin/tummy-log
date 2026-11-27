@@ -99,6 +99,16 @@ label.check input{width:20px;height:20px;accent-color:var(--meal)}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .toast{font-size:.9rem;color:var(--ok);min-height:1.2em}
 .sublink{display:flex;gap:8px;flex-wrap:wrap}
+/* daily symptom check */
+.head2{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.symlist{display:flex;flex-direction:column;gap:8px}
+.symrow{border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.symrow.on{border-color:var(--sym);background:var(--surface)}
+.symrow>label.check{padding:12px 14px;cursor:pointer}
+.symrow>label.check input{accent-color:var(--sym)}
+.symrow .sevmini{margin-left:auto;font-size:.8rem;color:var(--sym);font-weight:600}
+.symdet{display:flex;flex-direction:column;gap:12px;padding:0 14px 14px}
+.symdet .sev button{padding:8px 0}
 /* ingredient editor */
 .ings{display:flex;flex-direction:column;gap:6px}
 .ing{display:grid;grid-template-columns:minmax(0,1fr) 64px 104px 36px;gap:6px;align-items:center}
@@ -245,7 +255,7 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
   <section class="view" id="view-log">
     <div class="sublink">
       <button class="btn ghost small" data-jump="mealForm">Meal</button>
-      <button class="btn ghost small" data-jump="symForm">Symptom</button>
+      <button class="btn ghost small" data-jump="symForm">Symptoms</button>
       <button class="btn ghost small" data-jump="ctxForm">Day context</button>
       <button class="btn ghost small" data-goto="poop">Poop</button>
     </div>
@@ -304,32 +314,12 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
     </form>
 
     <form class="panel sym" id="symForm" autocomplete="off">
-      <h2>Add a symptom</h2>
-      <div class="seg" id="symType" role="group" aria-label="Symptom">
-        <button type="button" data-v="Bloating">Bloating</button>
-        <button type="button" data-v="Stomach pain">Stomach pain</button>
-        <button type="button" data-v="Cramps">Cramps</button>
-        <button type="button" data-v="Nausea">Nausea</button>
-        <button type="button" data-v="Wind">Wind</button>
-        <button type="button" data-v="Heartburn">Heartburn</button>
-        <button type="button" data-v="Croakiness">Croakiness</button>
-        <button type="button" data-v="Eye twitch">Eye twitch</button>
-        <button type="button" data-v="Other">Other</button>
-      </div>
-      <label class="check" for="burped" id="burpWrap" hidden><input type="checkbox" id="burped"> I burped</label>
-      <div>
-        <div class="lbl" id="sevLabel">How bad? <span class="hint">1 is mild, 5 is severe</span></div>
-        <div class="sev" id="sev" role="group" aria-labelledby="sevLabel" style="margin-top:6px">
-          <button type="button" data-v="1">1</button><button type="button" data-v="2">2</button><button type="button" data-v="3">3</button><button type="button" data-v="4">4</button><button type="button" data-v="5">5</button>
-        </div>
-      </div>
-      <div class="row">
-        <label for="symTime">When it started<input type="datetime-local" id="symTime"></label>
-        <label for="symNote">Notes (optional)<input id="symNote" placeholder="Lasted 2 hours…"></label>
-      </div>
+      <div class="head2"><h2>Daily symptom check</h2><span class="pill few" id="symDone"></span></div>
+      <p class="hint" style="margin:0">Tick each symptom you had on this day. If you had none, save the check with nothing ticked so the day still counts.</p>
+      <label for="symDate">Day<input type="date" id="symDate"></label>
+      <div class="symlist" id="symList"></div>
       <div class="actions">
-        <button class="btn sym" type="submit" id="symSave">Save symptom</button>
-        <button class="btn ghost" type="button" id="symCancel" hidden>Cancel edit</button>
+        <button class="btn sym" type="submit" id="symSave">Save symptom check</button>
         <span class="toast" id="symToast" role="status"></span>
       </div>
     </form>
@@ -850,20 +840,90 @@ function showScanResult(name, ings){
 }
 
 /* ---------- symptom form ---------- */
-let symType = null, sev = null;
-segPicker("#symType", v => { symType = v; $("#burpWrap").hidden = v !== "Croakiness"; });
-segPicker("#sev", v => sev = +v);
-function resetSym(){ symType=null; sev=null; pressSeg($("#symType"),"__"); pressSeg($("#sev"),"__"); $("#burped").checked=false; $("#burpWrap").hidden=true; $("#symNote").value=""; $("#symTime").value=toLocalInput(Date.now()); editing.sym=null; $("#symSave").textContent="Save symptom"; $("#symCancel").hidden=true; }
+const SYMPTOMS = ["Bloating","Stomach pain","Cramps","Nausea","Wind","Heartburn","Croakiness","Eye twitch","Other"];
+const DURS = [["","Not sure"],[15,"15 minutes"],[30,"30 minutes"],[60,"1 hour"],[120,"2 hours"],[180,"3 hours"],[240,"4 hours"],[360,"6 hours"],[480,"8 hours"],[720,"12 hours or more"]];
+const fmtDur = m => { const d = DURS.find(x => x[0] === m); return d ? d[1] : m >= 60 ? (m/60) + " hours" : m + " minutes"; };
+let symRows = {};
+const hhmm = t => { const d = new Date(t); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+function loadSymDay(key){
+  $("#symDate").value = key;
+  const existing = list().filter(e => e.kind==="symptom" && dayKey(e.t)===key).sort((a,b)=>a.t-b.t);
+  const isToday = key === dayKey(Date.now());
+  symRows = {};
+  SYMPTOMS.forEach(name => {
+    const e = existing.find(x => x.symptom === name) || (name === "Other" ? existing.find(x => !SYMPTOMS.includes(x.symptom)) : null);
+    symRows[name] = e
+      ? {on:true, id:e.id, severity:e.severity||null, allDay:!!e.allDay, start: e.allDay ? "" : hhmm(e.t), dur: e.durationMins || "", burped:!!e.burped, desc: e.symptom===name ? (e.desc||"") : e.symptom, notes:e.notes||""}
+      : {on:false, id:null, severity:null, allDay:false, start: isToday ? hhmm(Date.now()) : "12:00", dur:"", burped:false, desc:"", notes:""};
+  });
+  const chk = list().find(e => e.kind==="symcheck" && e.date===key);
+  $("#symDone").textContent = chk || existing.length ? "Done for this day" : "Not done yet";
+  $("#symDone").className = "pill " + (chk || existing.length ? "ok" : "few");
+  $("#symSave").textContent = chk || existing.length ? "Update symptom check" : "Save symptom check";
+  drawSymList();
+}
+function drawSymList(){
+  const wrap = $("#symList"); wrap.textContent = "";
+  SYMPTOMS.forEach((name, i) => {
+    const r = symRows[name], id = "sym" + i;
+    const row = document.createElement("div"); row.className = "symrow" + (r.on ? " on" : "");
+    const head = document.createElement("label"); head.className = "check"; head.htmlFor = id;
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.id = id; cb.checked = r.on;
+    head.append(cb, document.createTextNode(" " + name));
+    if (r.on && r.severity){ const s = document.createElement("span"); s.className = "sevmini"; s.textContent = r.severity + "/5"; head.appendChild(s); }
+    cb.onchange = () => { r.on = cb.checked; drawSymList(); if (r.on){ const f = document.getElementById(id + "-sev"); f && f.querySelector("button").focus(); } };
+    row.appendChild(head);
+    if (r.on){
+      const det = document.createElement("div"); det.className = "symdet";
+      let h = "";
+      if (name === "Other") h += '<label for="'+id+'-desc">What was it?<input id="'+id+'-desc" placeholder="Headache, dizziness…"></label>';
+      if (name === "Croakiness") h += '<label class="check" for="'+id+'-burp"><input type="checkbox" id="'+id+'-burp"> I burped</label>';
+      h += '<div><div class="lbl" id="'+id+'-sevl">How bad? <span class="hint">1 is mild, 5 is severe</span></div><div class="sev" id="'+id+'-sev" role="group" aria-labelledby="'+id+'-sevl" style="margin-top:6px">'+[1,2,3,4,5].map(n=>'<button type="button" data-v="'+n+'">'+n+'</button>').join("")+'</div></div>';
+      h += '<label class="check" for="'+id+'-all"><input type="checkbox" id="'+id+'-all"> All day</label>';
+      h += '<div class="row" id="'+id+'-times"><label for="'+id+'-start">Started at<input type="time" id="'+id+'-start"></label><label for="'+id+'-dur">How long it lasted<select id="'+id+'-dur">'+DURS.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join("")+'</select></label></div>';
+      h += '<label for="'+id+'-note">Notes (optional)<input id="'+id+'-note" placeholder="Anything else about it"></label>';
+      det.innerHTML = h;
+      row.appendChild(det);
+      wrap.appendChild(row);
+      const g = sel => document.getElementById(id + sel);
+      if (g("-desc")){ g("-desc").value = r.desc; g("-desc").oninput = e => r.desc = e.target.value; }
+      if (g("-burp")){ g("-burp").checked = r.burped; g("-burp").onchange = e => r.burped = e.target.checked; }
+      pressSeg(g("-sev"), r.severity || "__");
+      g("-sev").onclick = e => { const b = e.target.closest("button"); if (!b) return; r.severity = +b.dataset.v; pressSeg(g("-sev"), r.severity); const m = head.querySelector(".sevmini") || head.appendChild(Object.assign(document.createElement("span"), {className:"sevmini"})); m.textContent = r.severity + "/5"; };
+      g("-all").checked = r.allDay; g("-times").hidden = r.allDay;
+      g("-all").onchange = e => { r.allDay = e.target.checked; g("-times").hidden = r.allDay; };
+      g("-start").value = r.start; g("-start").oninput = e => r.start = e.target.value;
+      g("-dur").value = String(r.dur); g("-dur").onchange = e => r.dur = e.target.value ? +e.target.value : "";
+      g("-note").value = r.notes; g("-note").oninput = e => r.notes = e.target.value;
+    } else wrap.appendChild(row);
+  });
+}
+$("#symDate").addEventListener("change", e => loadSymDay(e.target.value || dayKey(Date.now())));
 $("#symForm").addEventListener("submit", async e => {
   e.preventDefault();
-  if (!symType){ flash("#symToast","Pick a symptom first.",true); return; }
-  if (!sev){ flash("#symToast","Pick how bad it was.",true); return; }
-  const entry = { id: editing.sym || newId(), kind:"symptom", t: fromLocalInput($("#symTime").value), symptom: symType, severity: sev, notes: $("#symNote").value.trim() };
-  if (symType === "Croakiness") entry.burped = $("#burped").checked;
-  const was = !!editing.sym;
-  resetSym(); await saveEntry(entry); flash("#symToast", was ? "Symptom updated" : "Symptom saved");
+  const key = $("#symDate").value || dayKey(Date.now()), base = keyToT(key);
+  const ticked = SYMPTOMS.filter(n => symRows[n].on);
+  const missing = ticked.find(n => !symRows[n].severity);
+  if (missing){ flash("#symToast", "Rate how bad " + missing.toLowerCase() + " was.", true); return; }
+  const otherMissing = symRows.Other.on && !symRows.Other.desc.trim();
+  if (otherMissing){ flash("#symToast", "Say what the other symptom was.", true); return; }
+  for (const n of SYMPTOMS){
+    const r = symRows[n];
+    if (!r.on){ if (r.id){ await deleteEntry(r.id); r.id = null; } continue; }
+    let t, end;
+    if (r.allDay){ t = base; end = base + DAY - 60e3; }
+    else { const [hh, mm] = (r.start || "12:00").split(":").map(Number); t = base + (hh||0)*H + (mm||0)*60e3; end = r.dur ? t + r.dur*60e3 : t; }
+    const entry = { id: r.id || newId(), kind:"symptom", t, end, allDay: r.allDay, durationMins: r.allDay ? null : (r.dur || null), symptom: n === "Other" ? (r.desc.trim() || "Other") : n, severity: r.severity, notes: r.notes.trim() };
+    if (n === "Other") entry.desc = r.desc.trim();
+    if (n === "Croakiness") entry.burped = r.burped;
+    r.id = entry.id;
+    await saveEntry(entry);
+  }
+  await saveEntry({ id:"chk-" + key, kind:"symcheck", date:key, t: base + 23*H + 58*60e3, count: ticked.length });
+  loadSymDay(key);
+  flash("#symToast", ticked.length ? "Saved " + ticked.length + " symptom" + (ticked.length===1?"":"s") + " for this day" : "Saved: no symptoms this day");
 });
-$("#symCancel").onclick = resetSym;
+function resetSym(){ loadSymDay(dayKey(Date.now())); }
 
 /* ---------- context form ---------- */
 let stress = null, period = null, exType = null;
@@ -1070,14 +1130,17 @@ function entryRow(e, rerender){
     } else main = esc((e.foods||[]).join(", "));
   } else if (e.kind==="symptom"){
     kind = "Symptom";
+    if (!e.allDay && e.durationMins) note = "Lasted " + fmtDur(e.durationMins) + (note ? " · " + note : "");
     main = esc(e.symptom) + (e.burped ? " (burped)" : "") + '<span class="dots" aria-label="Severity '+e.severity+' of 5">' + [1,2,3,4,5].map(i=>'<i class="'+(i<=e.severity?"on":"")+'"></i>').join("") + '</span>';
+  } else if (e.kind==="symcheck"){
+    kind = "Symptom check"; main = "No symptoms";
   } else if (e.kind==="poop"){
     kind = "Poop";
     main = "Type " + e.consistency + ": " + esc((BRISTOL[e.consistency]||{}).short || "");
   } else {
     kind = "Day context"; main = esc(ctxSummary(e));
   }
-  const time = e.kind==="context" ? "" : fmtTime(e.t);
+  const time = e.kind==="context" || e.kind==="symcheck" ? "" : e.allDay ? "All day" : fmtTime(e.t);
   const ops = confirmId===e.id
     ? '<button class="danger" data-op="yes">Delete</button><button data-op="no">Keep</button>'
     : '<button data-op="edit">Edit</button><button data-op="del">Delete</button>';
@@ -1106,10 +1169,8 @@ function startEdit(e){
     renderChips();
     $("#mealTime").value=toLocalInput(e.t); $("#mealNote").value=e.notes||""; $("#mealSave").textContent="Update meal"; $("#mealCancel").hidden=false;
     $("#mealForm").scrollIntoView({behavior:"smooth"});
-  } else if (e.kind==="symptom"){
-    editing.sym=e.id; symType=e.symptom; sev=e.severity; pressSeg($("#symType"),symType); pressSeg($("#sev"),sev);
-    $("#burpWrap").hidden = symType!=="Croakiness"; $("#burped").checked = !!e.burped;
-    $("#symTime").value=toLocalInput(e.t); $("#symNote").value=e.notes||""; $("#symSave").textContent="Update symptom"; $("#symCancel").hidden=false;
+  } else if (e.kind==="symptom" || e.kind==="symcheck"){
+    loadSymDay(e.date || dayKey(e.t));
     $("#symForm").scrollIntoView({behavior:"smooth"});
   } else if (e.kind==="context"){
     $("#ctxDate").value = e.date; loadCtx(e.date); $("#ctxForm").scrollIntoView({behavior:"smooth"});
@@ -1117,7 +1178,7 @@ function startEdit(e){
 }
 function renderDiary(){
   const wrap = $("#diaryList"); wrap.textContent="";
-  const items = list().filter(e=>e.kind!=="recipe").sort((a,b)=>b.t-a.t);
+  const items = list().filter(e=>e.kind!=="recipe" && !(e.kind==="symcheck" && e.count)).sort((a,b)=>b.t-a.t);
   if (!items.length){
     wrap.innerHTML = '<div class="empty"><h3>Your diary is empty</h3><p>Add your first meal, symptom or poop. Each entry shows up here, grouped by day.</p><div class="actions"><button class="btn meal" id="goLog">Add an entry</button><button class="btn ghost" id="tryDemo">See it with example data</button></div></div>';
     $("#goLog").onclick=()=>showView("log"); $("#tryDemo").onclick=startDemo; return;
@@ -1137,7 +1198,7 @@ function renderDiary(){
 /* ---------- patterns ---------- */
 const HARD_EV = "Hard poop (type 1–2)", LOOSE_EV = "Loose poop (type 6–7)";
 function symptomEvents(all, filter){
-  const ev = all.filter(e=>e.kind==="symptom").map(e=>({t:e.t, symptom:e.symptom, severity:e.severity||1}));
+  const ev = all.filter(e=>e.kind==="symptom").map(e=>({t:e.t, end:e.end||e.t, symptom:e.symptom, severity:e.severity||1}));
   all.filter(e=>e.kind==="poop").forEach(p => {
     if (p.consistency<=2) ev.push({t:p.t, symptom:HARD_EV, severity:p.consistency===1?4:3});
     else if (p.consistency>=6) ev.push({t:p.t, symptom:LOOSE_EV, severity:p.consistency===7?4:3});
@@ -1148,7 +1209,8 @@ function analyse(all, fromH, toH, symFilter){
   const meals = all.filter(e=>e.kind==="meal");
   const syms = symptomEvents(all, symFilter);
   const lo = fromH*H, hi = toH*H;
-  const followed = m => { let worst=0; for (const s of syms){ const d=s.t-m.t; if (d>=lo && d<=hi) worst=Math.max(worst,s.severity||1); } return worst; };
+  // a symptom follows a meal when its time span overlaps the window after the meal
+  const followed = m => { let worst=0; for (const s of syms){ const end = s.end||s.t; if (end - m.t >= lo && s.t - m.t <= hi) worst=Math.max(worst,s.severity||1); } return worst; };
   const foods = {}; let hitMeals = 0;
   meals.forEach(m => {
     const w = followed(m); if (w) hitMeals++;
@@ -1312,9 +1374,9 @@ $("#exitDemo").onclick = () => { demo = null; $("#demoBanner").hidden = true; re
 $("#exportBtn").onclick = async () => {
   if (!downloads) return;
   const rows = [["date","time","type","detail","severity or consistency","notes"]].concat(
-    list().filter(e=>e.kind!=="recipe").sort((a,b)=>a.t-b.t).map(e => { const d=new Date(e.t);
+    list().filter(e=>e.kind!=="recipe" && e.kind!=="symcheck").sort((a,b)=>a.t-b.t).map(e => { const d=new Date(e.t);
       const type = e.kind==="meal"?(e.mealType||"Meal"):e.kind==="symptom"?"Symptom":e.kind==="poop"?"Poop":"Day context";
-      const detail = e.kind==="meal"?(e.recipeName?e.recipeName+": ":"")+(e.foods||[]).join("; "):e.kind==="symptom"?e.symptom+(e.burped?" (burped)":""):e.kind==="poop"?"Bristol type "+e.consistency:ctxSummary(e);
+      const detail = e.kind==="meal"?(e.recipeName?e.recipeName+": ":"")+(e.foods||[]).join("; "):e.kind==="symptom"?e.symptom+(e.burped?" (burped)":"")+(e.allDay?", all day":e.durationMins?", lasted "+fmtDur(e.durationMins):""):e.kind==="poop"?"Bristol type "+e.consistency:ctxSummary(e);
       const lvl = e.kind==="symptom"?e.severity:e.kind==="poop"?e.consistency:"";
       return [d.toLocaleDateString("en-CA"), e.kind==="context"?"":fmtTime(e.t), type, detail, lvl, e.notes||""]; }));
   const csv = rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");

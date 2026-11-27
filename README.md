@@ -8,7 +8,7 @@ Open the app in any browser, on a phone or a computer. On a phone, use your brow
 
 - **Log**
   - **Meals**: list each food or ingredient, pick a saved recipe, or scan a barcode on packaged food.
-  - **Symptoms**: bloating, stomach pain, cramps, nausea, wind, heartburn, croakiness (with an "I burped" option), eye twitch or other, each rated 1 to 5.
+  - **Daily symptom check**: a tick list for each day covering bloating, stomach pain, cramps, nausea, wind, heartburn, croakiness (with an "I burped" option), eye twitch and other. Ticking a symptom opens a 1 to 5 severity rating, when it started and how long it lasted, or "All day". Saving with nothing ticked records a symptom-free day.
   - **Day context**: stress level, period, hours of sleep, exercise and any other illness.
 - **Diary**: everything logged, grouped by day, with edit and delete.
 - **Poop**: log each poop with its consistency on the Bristol stool scale (1 to 7). A month calendar shows how many times you went each day, coloured hard, normal or loose. Tap a day to see its entries.
