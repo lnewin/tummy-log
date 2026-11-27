@@ -3,7 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}</style>
+<meta name="theme-color" content="#0E7368">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tummy Log">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
 <title>Tummy Log</title>
@@ -99,6 +105,41 @@ label.check input{width:20px;height:20px;accent-color:var(--meal)}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .toast{font-size:.9rem;color:var(--ok);min-height:1.2em}
 .sublink{display:flex;gap:8px;flex-wrap:wrap}
+/* day bar */
+.daybar{gap:10px;padding:14px}
+.dayrow{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center}
+.navbtn{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;height:44px;font-size:1.3rem;cursor:pointer}
+.daypick{align-items:center;text-transform:none;letter-spacing:0;gap:4px}
+.dayname{font:700 1.15rem var(--display);color:var(--ink)}
+.daypick input{text-align:center;padding:6px 10px;max-width:220px}
+.tips{margin:0;padding-left:18px;font-size:.9rem;color:var(--muted);display:flex;flex-direction:column;gap:4px}
+/* food recognition */
+.foodinfo{display:flex;flex-direction:column;gap:4px}
+.foodinfo .fi{font-size:.85rem;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.foodinfo .fi b{font-weight:600;margin-right:2px}
+.tag{display:inline-block;font-size:.72rem;font-weight:600;border-radius:999px;padding:1px 8px;white-space:nowrap}
+.tag.alg{background:var(--hard-soft);color:var(--hard)}
+.tag.fhi{background:var(--sym-soft);color:var(--sym)}
+.tag.flo{background:var(--meal-soft);color:var(--meal)}
+.tag.grp{background:var(--sunk);color:var(--muted)}
+.entry .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+/* calendar toggles */
+.toggles{display:flex;flex-wrap:wrap;gap:6px}
+#calLegend{flex-direction:column;align-items:flex-start;gap:4px}
+.lgi{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.toggles button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:6px 12px;font:500 .85rem var(--body);cursor:pointer}
+.toggles button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.toggles .sep{width:100%;height:0}
+.pcal button.s1{background:color-mix(in srgb,var(--sym) 16%,var(--bg))}
+.pcal button.s2{background:color-mix(in srgb,var(--sym) 30%,var(--bg))}
+.pcal button.s3{background:color-mix(in srgb,var(--sym) 46%,var(--bg))}
+.pcal button.s4{background:color-mix(in srgb,var(--sym) 64%,var(--bg));color:var(--ink)}
+.pcal button.s5{background:color-mix(in srgb,var(--sym) 82%,var(--bg));color:var(--surface)}
+.pcal .badge{align-self:flex-end;min-width:18px;height:18px;border-radius:9px;padding:0 5px;font:700 .7rem/18px var(--body);text-align:center;color:var(--surface)}
+.pcal .badge.g-hard{background:var(--hard)} .pcal .badge.g-ok{background:var(--meal)} .pcal .badge.g-loose{background:var(--sym)}
+.pcal .badge.none{background:transparent;color:var(--muted);border:1px dashed var(--line);line-height:16px}
+.pcal .per{position:absolute;left:3px;right:3px;top:0;height:3px;border-radius:0 0 3px 3px;background:var(--ctx)}
+.pcal button{position:relative}
 /* daily symptom check */
 .head2{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .symlist{display:flex;flex-direction:column;gap:8px}
@@ -241,7 +282,7 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" id="tab-log" aria-selected="true" data-view="log">Log</button>
     <button class="tab" role="tab" id="tab-diary" aria-selected="false" data-view="diary">Diary</button>
-    <button class="tab" role="tab" id="tab-poop" aria-selected="false" data-view="poop">Poop</button>
+    <button class="tab" role="tab" id="tab-calendar" aria-selected="false" data-view="calendar">Calendar</button>
     <button class="tab" role="tab" id="tab-recipes" aria-selected="false" data-view="recipes">Recipes</button>
     <button class="tab" role="tab" id="tab-patterns" aria-selected="false" data-view="patterns">Patterns</button>
   </nav>
@@ -253,11 +294,26 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
 
   <!-- LOG -->
   <section class="view" id="view-log">
-    <div class="sublink">
-      <button class="btn ghost small" data-jump="mealForm">Meal</button>
-      <button class="btn ghost small" data-jump="symForm">Symptoms</button>
-      <button class="btn ghost small" data-jump="ctxForm">Day context</button>
-      <button class="btn ghost small" data-goto="poop">Poop</button>
+    <div class="panel daybar">
+      <div class="dayrow">
+        <button type="button" class="navbtn" id="dPrev" aria-label="Previous day">‹</button>
+        <label for="logDate" class="daypick"><span class="dayname" id="logDayName">Today</span><input type="date" id="logDate" aria-label="Day you're logging"></label>
+        <button type="button" class="navbtn" id="dNext" aria-label="Next day">›</button>
+      </div>
+      <div class="actions" style="justify-content:space-between">
+        <span class="hint" id="daySummary"></span>
+        <button type="button" class="btn ghost small" id="dToday">Back to today</button>
+      </div>
+      <div class="sublink">
+        <button type="button" class="btn ghost small" data-jump="mealForm">Meal</button>
+        <button type="button" class="btn ghost small" data-jump="symForm">Symptoms</button>
+        <button type="button" class="btn ghost small" data-jump="poopForm">Poop</button>
+        <button type="button" class="btn ghost small" data-jump="ctxForm">Day context</button>
+      </div>
+    </div>
+    <div class="banner" id="backupNag" hidden style="margin-top:0">
+      <span id="backupNagText">You haven't backed up your log yet.</span>
+      <button type="button" class="btn ghost small" id="backupNagBtn">Download a backup</button>
     </div>
 
     <form class="panel meal" id="mealForm" autocomplete="off">
@@ -289,6 +345,7 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
         </div>
         <span class="hint">Press Enter or comma after each one. Listing ingredients (milk, onion, garlic) gives better patterns than dish names.</span>
       </label>
+      <div class="foodinfo" id="foodInfo" aria-live="polite"></div>
       <div class="suggest" id="recentFoods" aria-label="Recent foods"></div>
       <div class="actions"><button type="button" class="btn ghost small" id="scanBtn">Scan a barcode</button></div>
       <div class="scan" id="scanPanel" hidden>
@@ -303,7 +360,7 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
       </div>
 
       <div class="row">
-        <label for="mealTime">When<input type="datetime-local" id="mealTime"></label>
+        <label for="mealTime">Time<input type="time" id="mealTime"></label>
         <label for="mealNote">Notes (optional)<input id="mealNote" placeholder="Eaten out, large portion…"></label>
       </div>
       <div class="actions">
@@ -316,7 +373,6 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
     <form class="panel sym" id="symForm" autocomplete="off">
       <div class="head2"><h2>Daily symptom check</h2><span class="pill few" id="symDone"></span></div>
       <p class="hint" style="margin:0">Tick each symptom you had on this day. If you had none, save the check with nothing ticked so the day still counts.</p>
-      <label for="symDate">Day<input type="date" id="symDate"></label>
       <div class="symlist" id="symList"></div>
       <div class="actions">
         <button class="btn sym" type="submit" id="symSave">Save symptom check</button>
@@ -324,10 +380,28 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
       </div>
     </form>
 
+    <form class="panel poo" id="poopForm" autocomplete="off">
+      <h2>Log a poop</h2>
+      <div>
+        <div class="lbl" id="bristolLabel">Consistency <span class="hint">Bristol stool scale, 1 to 7</span></div>
+        <div class="bristol" id="bristol" role="group" aria-labelledby="bristolLabel" style="margin-top:6px"></div>
+        <div class="bgroups" style="margin-top:6px"><span>Constipated</span><span>Normal</span><span>Loose</span></div>
+        <p class="bdesc" id="bdesc"></p>
+      </div>
+      <div class="row">
+        <label for="poopTime">Time<input type="time" id="poopTime"></label>
+        <label for="poopNote">Notes (optional)<input id="poopNote" placeholder="Urgent, painful, blood…"></label>
+      </div>
+      <div class="actions">
+        <button class="btn poo" type="submit" id="poopSave">Save poop</button>
+        <button class="btn ghost" type="button" id="poopCancel" hidden>Cancel edit</button>
+        <span class="toast" id="poopToast" role="status"></span>
+      </div>
+    </form>
+
     <form class="panel ctx" id="ctxForm" autocomplete="off">
       <h2>Day context</h2>
       <p class="hint" style="margin:0">Things besides food that can upset a stomach. Fill in what applies, once a day.</p>
-      <label for="ctxDate">Day<input type="date" id="ctxDate"></label>
       <div>
         <div class="lbl" id="stressLabel">Stress level <span class="hint">1 is calm, 5 is very stressed</span></div>
         <div class="sev ctxs" id="stress" role="group" aria-labelledby="stressLabel" style="margin-top:6px">
@@ -365,38 +439,33 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
       <button class="btn ghost" id="exportBtn" hidden>Export CSV</button>
     </div>
     <div id="diaryList" class="diary"></div>
+    <div class="panel" id="safety">
+      <h2>Keep your log safe</h2>
+      <p class="hint" style="margin:0" id="storeNote"></p>
+      <ul class="tips" id="safetyTips"></ul>
+      <div class="actions">
+        <button type="button" class="btn meal" id="backupBtn">Download a backup</button>
+        <label class="btn ghost" for="restoreFile" style="display:inline-flex;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--ink)">Restore from a backup<input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
+      </div>
+      <span class="toast" id="backupToast" role="status"></span>
+    </div>
   </section>
 
-  <!-- POOP -->
-  <section class="view" id="view-poop" hidden>
-    <form class="panel poo" id="poopForm" autocomplete="off">
-      <h2>Log a poop</h2>
-      <div>
-        <div class="lbl" id="bristolLabel">Consistency <span class="hint">Bristol stool scale, 1 to 7</span></div>
-        <div class="bristol" id="bristol" role="group" aria-labelledby="bristolLabel" style="margin-top:6px"></div>
-        <div class="bgroups" style="margin-top:6px"><span>Constipated</span><span>Normal</span><span>Loose</span></div>
-        <p class="bdesc" id="bdesc"></p>
-      </div>
-      <div class="row">
-        <label for="poopTime">When<input type="datetime-local" id="poopTime"></label>
-        <label for="poopNote">Notes (optional)<input id="poopNote" placeholder="Urgent, painful, blood…"></label>
-      </div>
-      <div class="actions">
-        <button class="btn poo" type="submit" id="poopSave">Save poop</button>
-        <button class="btn ghost" type="button" id="poopCancel" hidden>Cancel edit</button>
-        <span class="toast" id="poopToast" role="status"></span>
-      </div>
-    </form>
-
+  <!-- CALENDAR -->
+  <section class="view" id="view-calendar" hidden>
     <div class="panel">
       <div class="monthbar">
         <button type="button" id="pPrev" aria-label="Previous month">‹</button>
         <h2 id="pMonth"></h2>
         <button type="button" id="pNext" aria-label="Next month">›</button>
       </div>
+      <div>
+        <div class="lbl">Show on the calendar</div>
+        <div class="toggles" id="calToggles" style="margin-top:6px"></div>
+      </div>
       <div class="stats" id="pStats"></div>
       <div class="pcal" id="pcal"></div>
-      <div class="legend">Number = poops that day. <span style="background:var(--hard-soft)"></span>hard <span style="background:var(--meal-soft)"></span>normal <span style="background:var(--sym-soft)"></span>loose</div>
+      <div class="legend" id="calLegend"></div>
       <div id="pDay"></div>
     </div>
   </section>
@@ -433,6 +502,7 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
           <option value="4">4 hours</option><option value="8">8 hours</option><option value="12" selected>12 hours</option><option value="24">24 hours</option><option value="48">48 hours</option><option value="72">72 hours</option>
         </select></label>
         <label for="symFilter">Symptom<select id="symFilter"><option value="">Any symptom</option></select></label>
+        <label for="patBy">Look at<select id="patBy"><option value="foods">Individual foods</option><option value="allergens">Allergens</option><option value="groups">Food groups</option><option value="fodmap">FODMAP groups</option></select></label>
       </div>
       <p class="hint" style="margin:0">Hours are counted from when you ate. Most food reactions show up within 2 to 12 hours. Try 24 or 48 hours for slower ones like hard or loose poops.</p>
       <p class="summary" id="summary"></p>
@@ -445,9 +515,9 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
     </div>
 
     <div class="panel">
-      <h3>Foods ranked by link to symptoms</h3>
+      <h3 id="tableTitle">Foods ranked by link to symptoms</h3>
       <div class="tablewrap"><table>
-        <thead><tr><th>Food</th><th>Eaten</th><th>Followed by symptoms</th><th class="barcol" style="min-width:90px">Rate vs usual</th><th>Link</th></tr></thead>
+        <thead><tr><th id="colName">Food</th><th>Eaten</th><th>Followed by symptoms</th><th class="barcol" style="min-width:90px">Rate vs usual</th><th>Link</th></tr></thead>
         <tbody id="foodTable"></tbody>
       </table></div>
       <details>
@@ -493,6 +563,172 @@ const BRISTOL = [
 ];
 const groupOf = c => BRISTOL[c] ? BRISTOL[c].g : "ok";
 
+/* ---------- food knowledge ----------
+   keywords | food groups | allergens (UK 14) | FODMAP: H:<types>, L, or blank when it depends.
+   General guidance only (based on published low-FODMAP lists); portion size matters. */
+const FOOD_DB_SRC = `
+lactose free milk,lactose-free milk|dairy|milk|L
+oat milk|drink|gluten|
+almond milk|drink|tree nuts|L
+soy milk,soya milk|drink|soya|
+coconut milk|fats||L
+milk,semi skimmed,skimmed milk,whole milk|dairy|milk|H:lactose
+cottage cheese,ricotta,cream cheese,mascarpone,paneer,halloumi|dairy|milk|H:lactose
+cheddar,parmesan,mozzarella,brie,camembert,feta,swiss cheese,cheese|dairy|milk|L
+ice cream|dairy,sugary|milk|H:lactose
+custard|dairy,sugary|milk,eggs|H:lactose
+cream,sour cream,creme fraiche|dairy,fats|milk|H:lactose
+yoghurt,yogurt|dairy|milk|H:lactose
+butter|fats|milk|L
+latte,cappuccino,flat white,hot chocolate,milkshake|drink,dairy|milk|H:lactose
+espresso,coffee,americano|drink||L
+green tea,black tea,builders tea,tea|drink||L
+chai,chamomile,fennel tea|drink||H:fructans
+apple juice,pear juice|drink,fruit||H:fructose
+orange juice|drink,fruit||L
+juice,smoothie|drink,fruit||
+cola,coke,lemonade,fizzy drink,energy drink|drink,sugary||
+beer,lager,ale|drink|gluten|L
+wine,prosecco,champagne|drink|sulphites|L
+rum|drink||H:fructose
+water|drink||L
+honey,agave|sugary||H:fructose
+high fructose corn syrup|sugary||H:fructose
+sorbitol,xylitol,maltitol,mannitol,sugar free gum,sugar-free|sugary||H:polyols
+maple syrup,sugar|sugary||L
+dark chocolate|sugary|soya|L
+milk chocolate,white chocolate,chocolate|sugary|milk,soya|H:lactose
+biscuit,biscuits,cookie,digestive|sugary,starch|gluten,milk|H:fructans
+cake,brownie,muffin,doughnut,donut|sugary,starch|gluten,eggs,milk|H:fructans
+gluten free bread,gluten-free bread,gf bread|starch||L
+sourdough|starch|gluten|L
+bread,toast,sandwich,wrap,bagel,baguette,bread roll,pitta,pita,naan,crumpet,tortilla|starch|gluten|H:fructans
+croissant,pastry,pie,sausage roll|starch,fats|gluten,milk|H:fructans
+pizza|starch,dairy|gluten,milk|H:fructans
+rice noodles,glass noodles|starch||L
+egg noodles|starch|gluten,eggs|H:fructans
+gluten free pasta,gluten-free pasta|starch||L
+pasta,spaghetti,penne,macaroni,lasagne,fusilli,tagliatelle,noodles,ramen,udon|starch|gluten|H:fructans
+couscous,bulgur,semolina|starch|gluten|H:fructans
+rye,barley,spelt,wheat,flour,breadcrumbs|starch|gluten|H:fructans
+granola,muesli|starch,sugary|gluten,tree nuts|H:fructans
+weetabix,shreddies,bran flakes,cereal|starch|gluten|H:fructans
+cornflakes,rice krispies,cornflake|starch||L
+porridge,oats,oatmeal,overnight oats|starch|gluten|L
+rice,risotto,sushi rice,basmati|starch||L
+quinoa,polenta,buckwheat,millet|starch||L
+sweet potato|starch,veg||L
+potato,potatoes,chips,fries,jacket potato,mash,mashed potato,roast potatoes,hash brown,crisps|starch||L
+spring onion|veg||L
+onion,onions,shallot,leek|veg||H:fructans
+garlic|veg||H:fructans
+celery,celeriac|veg|celery|H:polyols
+mushroom,mushrooms|veg||H:polyols
+cauliflower|veg||H:polyols
+asparagus|veg||H:fructose
+artichoke|veg||H:fructans
+beetroot|veg||H:fructans
+butternut squash|veg||H:fructans
+savoy cabbage|veg||H:fructans
+sugar snap peas,mangetout|veg||H:fructose
+baked beans,kidney beans,black beans,butter beans,borlotti,haricot|protein,veg||H:GOS
+chickpeas,lentils,hummus,houmous,falafel,dal,dhal|protein,veg||H:GOS
+beans|protein,veg||H:GOS
+peas,green peas,petit pois|veg||H:GOS
+green beans,runner beans|veg||L
+sweetcorn,corn on the cob,corn|veg||L
+broccoli,carrot,carrots,spinach,lettuce,salad,rocket,tomato,tomatoes,chopped tomatoes,passata,cucumber,pepper,peppers,courgette,aubergine,kale,bean sprouts,pak choi,bok choy,cabbage,parsnip,swede,turnip,radish,olives,ginger,chilli,chillies,herbs,basil,parsley,coriander|veg||L
+avocado,guacamole|veg,fats||H:polyols
+banana,bananas|fruit||L
+apple,apples|fruit||H:fructose,polyols
+pear,pears|fruit||H:fructose,polyols
+mango|fruit||H:fructose
+watermelon|fruit||H:fructose,polyols
+figs|fruit||H:fructose,fructans
+cherries,cherry,peach,peaches,plum,plums,nectarine,apricot,apricots,prunes,blackberries|fruit||H:polyols
+raisins,sultanas,dates,dried fruit,currants|fruit,sugary||H:fructans
+strawberries,strawberry,blueberries,raspberries,berries,grapes,orange,oranges,satsuma,clementine,kiwi,pineapple,melon,cantaloupe,lemon,lime,rhubarb,passion fruit,papaya|fruit||L
+chilli con carne|protein,veg||H:fructans,GOS
+sausage,sausages|protein|gluten,sulphites|H:fructans
+chicken,beef,mince,beef mince,pork,lamb,turkey,bacon,ham,steak,duck,venison,gammon|protein||L
+salmon,tuna,cod,haddock,mackerel,sardines,trout,plaice,pollock,anchovies,fish|protein|fish|L
+prawns,prawn,shrimp,crab,lobster,crayfish|protein|crustaceans|L
+mussels,squid,calamari,oysters,scallops,clams,octopus|protein|molluscs|L
+egg,eggs,omelette,scrambled eggs,quiche|protein|eggs|L
+silken tofu|protein|soya|H:GOS
+tofu,tempeh,edamame|protein|soya|L
+soy sauce,soya sauce|sauce|soya,gluten|L
+tamari|sauce|soya|L
+peanut,peanuts,peanut butter,satay|protein,fats|peanuts|L
+almond,almonds|protein,fats|tree nuts|H:GOS
+cashew,cashews,pistachio,pistachios|protein,fats|tree nuts|H:GOS,fructans
+walnut,walnuts,hazelnut,hazelnuts,pecan,pecans,macadamia,brazil nuts,nuts,nutella|protein,fats|tree nuts|L
+sesame,tahini,sesame oil|fats|sesame|L
+lupin|starch|lupin|
+mustard|sauce|mustard|L
+mayonnaise,mayo|sauce,fats|eggs|L
+pesto|sauce,fats|milk,tree nuts|H:fructans
+ketchup,bbq sauce,barbecue sauce|sauce,sugary||H:fructans
+gravy,stock,stock cube,bouillon|sauce|celery,gluten|H:fructans
+curry,curry sauce,korma,tikka masala|sauce||H:fructans
+worcestershire sauce|sauce|fish|L
+vinegar,balsamic|sauce|sulphites|L
+olive oil,vegetable oil,rapeseed oil,oil|fats||L
+inulin,chicory root|sugary||H:fructans
+`;
+const GROUP_NAMES = {veg:"Vegetables", fruit:"Fruit", starch:"Starchy carbs", dairy:"Dairy", protein:"Protein", fats:"Fats and oils", sugary:"Sweet foods", drink:"Drinks", sauce:"Sauces and condiments"};
+const ALLERGEN_NAMES = {gluten:"Gluten", milk:"Milk", eggs:"Eggs", fish:"Fish", crustaceans:"Crustaceans", molluscs:"Molluscs", peanuts:"Peanuts", "tree nuts":"Tree nuts", sesame:"Sesame", soya:"Soya", celery:"Celery", mustard:"Mustard", lupin:"Lupin", sulphites:"Sulphites"};
+const FOOD_DB = [];
+FOOD_DB_SRC.trim().split("\n").forEach(line => {
+  const [kw, g, a, f] = line.split("|");
+  const info = { groups: g ? g.split(",") : [], allergens: a ? a.split(",") : [], fodmap: f ? (f[0]==="H" ? "high" : "low") : "", fodmapTypes: f && f[0]==="H" ? f.slice(2).split(",") : [] };
+  kw.split(",").forEach(k => FOOD_DB.push({k: k.trim(), info}));
+});
+FOOD_DB.sort((a,b) => b.k.length - a.k.length);
+const FOOD_RE = FOOD_DB.map(e => ({...e, re: new RegExp("(^|[^a-z])" + e.k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?=$|[^a-z])")}));
+const foodCache = new Map();
+/* Recognise one food or ingredient. Longest phrases win, so "cream cheese" isn't also read as "cream". */
+function recognise(food){
+  const key = norm(food);
+  if (foodCache.has(key)) return foodCache.get(key);
+  let s = " " + key.replace(/[^a-z0-9 \-]/g, " ") + " ";
+  const hits = [];
+  for (const e of FOOD_RE){
+    if (e.re.test(s)){ hits.push(e); s = s.replace(e.re, "$1 # "); }
+  }
+  const out = {matched: hits.map(h=>h.k), groups: [], allergens: [], fodmap: "", fodmapTypes: []};
+  hits.forEach(h => {
+    h.info.groups.forEach(g => out.groups.includes(g) || out.groups.push(g));
+    h.info.allergens.forEach(a => out.allergens.includes(a) || out.allergens.push(a));
+    h.info.fodmapTypes.forEach(t => out.fodmapTypes.includes(t) || out.fodmapTypes.push(t));
+  });
+  if (hits.some(h=>h.info.fodmap==="high")) out.fodmap = "high";
+  else if (hits.length && hits.every(h=>h.info.fodmap==="low")) out.fodmap = "low";
+  foodCache.set(key, out);
+  return out;
+}
+function foodTags(food){
+  const r = recognise(food); const t = [];
+  r.allergens.forEach(a => t.push({cls:"alg", txt: ALLERGEN_NAMES[a] || a}));
+  if (r.fodmap === "high") t.push({cls:"fhi", txt:"High FODMAP" + (r.fodmapTypes.length ? " (" + r.fodmapTypes.join(", ") + ")" : "")});
+  else if (r.fodmap === "low") t.push({cls:"flo", txt:"Low FODMAP"});
+  r.groups.forEach(g => t.push({cls:"grp", txt: GROUP_NAMES[g] || g}));
+  return t;
+}
+function tagHTML(tags){ return tags.map(t => '<span class="tag '+t.cls+'">'+esc(t.txt)+'</span>').join(""); }
+/* keys a meal contributes for each kind of pattern */
+const PAT_KINDS = {
+  foods: {label:"food", fn: m => [...new Set((m.foods||[]).map(norm).filter(Boolean))]},
+  allergens: {label:"allergen", fn: m => { const s = new Set(); (m.foods||[]).forEach(f => recognise(f).allergens.forEach(a => s.add(ALLERGEN_NAMES[a]||a))); return [...s]; }},
+  groups: {label:"food group", fn: m => { const s = new Set(); (m.foods||[]).forEach(f => recognise(f).groups.forEach(g => s.add(GROUP_NAMES[g]||g))); return [...s]; }},
+  fodmap: {label:"FODMAP group", fn: m => {
+    const s = new Set(); let anyHigh = false, allLow = (m.foods||[]).length > 0;
+    (m.foods||[]).forEach(f => { const r = recognise(f); if (r.fodmap==="high"){ anyHigh = true; r.fodmapTypes.forEach(t => s.add("High FODMAP: " + t)); } if (r.fodmap!=="low") allLow = false; });
+    if (anyHigh) s.add("Any high-FODMAP food"); if (allLow) s.add("Only low-FODMAP foods");
+    return [...s];
+  }}
+};
+
 /* ---------- storage ---------- */
 let entries = [];
 let demo = null;
@@ -528,7 +764,7 @@ async function connect(){
   if (!inClaude) return;
   try {
     const [d, u, dl] = await Promise.all([claude.use("db"), claude.use("user"), claude.use("downloads")]);
-    downloads = dl; if (downloads) $("#exportBtn").hidden = false;
+    downloads = dl; $("#exportBtn").hidden = !downloads;
     if (!d || !u) return;
     uid = await u.id();
     if (!uid) return;
@@ -553,6 +789,33 @@ async function connect(){
     }, err => { clearTimeout(timer); mode = "local"; setStatus("Saved on this device"); });
   } catch(e){}
 }
+
+/* ---------- the day being logged ---------- */
+let logDay = dayKey(Date.now());
+function atLogDay(timeStr){ const [hh, mm] = (timeStr || "12:00").split(":").map(Number); return keyToT(logDay) + (hh||0)*H + (mm||0)*60e3; }
+function defaultTime(){ return logDay === dayKey(Date.now()) ? hhmm(Date.now()) : "12:00"; }
+function setLogDay(key){
+  if (!key) key = dayKey(Date.now());
+  logDay = key;
+  $("#logDate").value = key;
+  const today = dayKey(Date.now()), yest = dayKey(Date.now() - DAY);
+  $("#logDayName").textContent = key === today ? "Today" : key === yest ? "Yesterday" : new Date(keyToT(key)).toLocaleDateString([], {weekday:"long", day:"numeric", month:"long"});
+  $("#dToday").hidden = key === today;
+  $("#dNext").disabled = key >= today;
+  if (!editing.meal) $("#mealTime").value = defaultTime();
+  if (!editing.poop) $("#poopTime").value = defaultTime();
+  loadSymDay(key); loadCtx(key); daySummary();
+}
+function daySummary(){
+  const es = list().filter(e => e.kind !== "recipe" && (e.date ? e.date === logDay : dayKey(e.t) === logDay));
+  const meals = es.filter(e=>e.kind==="meal").length, poops = es.filter(e=>e.kind==="poop").length;
+  const checked = es.some(e=>e.kind==="symcheck" || e.kind==="symptom"), ctx = es.some(e=>e.kind==="context");
+  $("#daySummary").textContent = meals + " meal" + (meals===1?"":"s") + " · " + poops + " poop" + (poops===1?"":"s") + " · symptom check " + (checked ? "done" : "not done") + " · context " + (ctx ? "saved" : "not saved");
+}
+$("#logDate").addEventListener("change", e => setLogDay(e.target.value));
+$("#dPrev").onclick = () => setLogDay(dayKey(keyToT(logDay) - DAY + 2*H));
+$("#dNext").onclick = () => setLogDay(dayKey(keyToT(logDay) + DAY + 2*H));
+$("#dToday").onclick = () => setLogDay(dayKey(Date.now()));
 
 /* ---------- shared helpers ---------- */
 function toLocalInput(t){ const d = new Date(t); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); }
@@ -653,7 +916,13 @@ function renderChips(){
     b.onclick = () => { chips.splice(i,1); renderChips(); input.focus(); };
     s.appendChild(b); box.insertBefore(s, input);
   });
+  renderFoodInfo();
   renderRecent();
+}
+function renderFoodInfo(){
+  const box = $("#foodInfo"); if (!box) return;
+  const names = (mealRecipe ? tidyIngs(mealIngs).map(r=>r.name) : []).concat(chips);
+  box.innerHTML = [...new Set(names)].map(n => { const t = foodTags(n); return t.length ? '<div class="fi"><b>'+esc(n)+'</b>'+tagHTML(t)+'</div>' : '<div class="fi"><b>'+esc(n)+'</b><span class="hint">not recognised</span></div>'; }).join("");
 }
 function renderRecent(){
   const counts = {}, display = {};
@@ -700,13 +969,14 @@ function updateVarBox(){
   const d = ingDiff(mealRecipe.ingredients||[], tidyIngs(mealIngs));
   $("#varBox").hidden = d.same;
   $("#varDiff").innerHTML = d.same ? "" : "Changed from the saved recipe: " + diffHTML(d);
+  renderFoodInfo();
 }
 $("#recipePick").addEventListener("change", e => setMealRecipe(e.target.value));
 $("#mealIngAdd").onclick = () => mealIngEd && mealIngEd.add();
 
 function resetMeal(){
   chips=[]; renderChips(); $("#foodInput").value=""; $("#mealNote").value="";
-  const n=Date.now(); $("#mealTime").value=toLocalInput(n); mealType=guessMealType(n); pressSeg($("#mealType"),mealType);
+  editing.meal=null; $("#mealTime").value=defaultTime(); mealType=guessMealType(atLogDay($("#mealTime").value)); pressSeg($("#mealType"),mealType);
   editing.meal=null; $("#mealSave").textContent="Save meal"; $("#mealCancel").hidden=true; $("#saveVar").checked = true;
   setMealRecipe(""); closeScanner();
 }
@@ -716,7 +986,7 @@ $("#mealForm").addEventListener("submit", async e => {
   const pending = $("#foodInput").value; if (pending.trim()){ addChip(pending); $("#foodInput").value=""; }
   const ings = mealRecipe ? tidyIngs(mealIngs) : [];
   if (!chips.length && !ings.length){ flash("#mealToast","Add at least one food first.",true); $("#foodInput").focus(); return; }
-  const t = fromLocalInput($("#mealTime").value);
+  const t = atLogDay($("#mealTime").value);
   let recipeId = mealRecipe ? mealRecipe.id : null, recipeName = mealRecipe ? mealRecipe.name : null, made = false;
   if (mealRecipe && !ingDiff(mealRecipe.ingredients||[], ings).same && $("#saveVar").checked){
     const mainId = mealRecipe.parentId || mealRecipe.id;
@@ -846,7 +1116,6 @@ const fmtDur = m => { const d = DURS.find(x => x[0] === m); return d ? d[1] : m 
 let symRows = {};
 const hhmm = t => { const d = new Date(t); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
 function loadSymDay(key){
-  $("#symDate").value = key;
   const existing = list().filter(e => e.kind==="symptom" && dayKey(e.t)===key).sort((a,b)=>a.t-b.t);
   const isToday = key === dayKey(Date.now());
   symRows = {};
@@ -898,10 +1167,9 @@ function drawSymList(){
     } else wrap.appendChild(row);
   });
 }
-$("#symDate").addEventListener("change", e => loadSymDay(e.target.value || dayKey(Date.now())));
 $("#symForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const key = $("#symDate").value || dayKey(Date.now()), base = keyToT(key);
+  const key = logDay, base = keyToT(key);
   const ticked = SYMPTOMS.filter(n => symRows[n].on);
   const missing = ticked.find(n => !symRows[n].severity);
   if (missing){ flash("#symToast", "Rate how bad " + missing.toLowerCase() + " was.", true); return; }
@@ -920,10 +1188,10 @@ $("#symForm").addEventListener("submit", async e => {
     await saveEntry(entry);
   }
   await saveEntry({ id:"chk-" + key, kind:"symcheck", date:key, t: base + 23*H + 58*60e3, count: ticked.length });
-  loadSymDay(key);
+  loadSymDay(key); daySummary();
   flash("#symToast", ticked.length ? "Saved " + ticked.length + " symptom" + (ticked.length===1?"":"s") + " for this day" : "Saved: no symptoms this day");
 });
-function resetSym(){ loadSymDay(dayKey(Date.now())); }
+function resetSym(){ loadSymDay(logDay); }
 
 /* ---------- context form ---------- */
 let stress = null, period = null, exType = null;
@@ -939,16 +1207,15 @@ function loadCtx(key){
   $("#illness").value = c.illness || "";
   $("#ctxSave").textContent = c.id ? "Update day context" : "Save day context";
 }
-$("#ctxDate").addEventListener("change", e => loadCtx(e.target.value || dayKey(Date.now())));
 $("#ctxForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const key = $("#ctxDate").value || dayKey(Date.now());
+  const key = logDay;
   const sleep = $("#sleepHours").value === "" ? null : +$("#sleepHours").value;
   const mins = $("#exMins").value === "" ? null : +$("#exMins").value;
   const illness = $("#illness").value.trim();
   if (stress==null && !period && sleep==null && mins==null && !exType && !illness){ flash("#ctxToast","Fill in at least one thing first.",true); return; }
   const entry = { id: "ctx-" + key, kind:"context", date:key, t: keyToT(key) + 23*H + 59*60e3, stress, period, sleep, exercise: exType || (mins ? "Moderate" : null), exerciseMins: mins, illness };
-  await saveEntry(entry); $("#ctxSave").textContent = "Update day context"; flash("#ctxToast","Day context saved");
+  await saveEntry(entry); $("#ctxSave").textContent = "Update day context"; daySummary(); flash("#ctxToast","Day context saved");
 });
 function ctxSummary(c){
   const p = [];
@@ -970,69 +1237,113 @@ pMonth.setDate(1); pMonth.setHours(0,0,0,0);
   for (let i=1;i<=7;i++){ const btn=document.createElement("button"); btn.type="button"; btn.dataset.v=i; btn.className="g-"+BRISTOL[i].g; btn.setAttribute("aria-label", BRISTOL[i].desc); btn.innerHTML='<b>'+i+'</b><span>'+esc(BRISTOL[i].short)+'</span>'; b.appendChild(btn); }
 })();
 segPicker("#bristol", v => { poopC = +v; $("#bdesc").textContent = BRISTOL[poopC].desc; });
-function resetPoop(){ poopC=null; pressSeg($("#bristol"),"__"); $("#bdesc").textContent=""; $("#poopNote").value=""; $("#poopTime").value=toLocalInput(Date.now()); editing.poop=null; $("#poopSave").textContent="Save poop"; $("#poopCancel").hidden=true; }
+function resetPoop(){ poopC=null; pressSeg($("#bristol"),"__"); $("#bdesc").textContent=""; $("#poopNote").value=""; editing.poop=null; $("#poopTime").value=defaultTime(); $("#poopSave").textContent="Save poop"; $("#poopCancel").hidden=true; }
 $("#poopForm").addEventListener("submit", async e => {
   e.preventDefault();
   if (!poopC){ flash("#poopToast","Pick a consistency first.",true); return; }
-  const entry = { id: editing.poop || newId(), kind:"poop", t: fromLocalInput($("#poopTime").value), consistency: poopC, notes: $("#poopNote").value.trim() };
+  const entry = { id: editing.poop || newId(), kind:"poop", t: atLogDay($("#poopTime").value), consistency: poopC, notes: $("#poopNote").value.trim() };
   const was = !!editing.poop;
-  resetPoop(); pSel = dayKey(entry.t); const d = new Date(entry.t); pMonth = new Date(d.getFullYear(), d.getMonth(), 1);
-  await saveEntry(entry); flash("#poopToast", was ? "Poop updated" : "Poop saved");
+  resetPoop();
+  await saveEntry(entry); daySummary(); flash("#poopToast", was ? "Poop updated" : "Poop saved");
 });
 $("#poopCancel").onclick = resetPoop;
-$("#pPrev").onclick = () => { pMonth = new Date(pMonth.getFullYear(), pMonth.getMonth()-1, 1); pSel=null; renderPoop(); };
-$("#pNext").onclick = () => { pMonth = new Date(pMonth.getFullYear(), pMonth.getMonth()+1, 1); pSel=null; renderPoop(); };
+$("#pPrev").onclick = () => { pMonth = new Date(pMonth.getFullYear(), pMonth.getMonth()-1, 1); pSel=null; renderCalendar(); };
+$("#pNext").onclick = () => { pMonth = new Date(pMonth.getFullYear(), pMonth.getMonth()+1, 1); pSel=null; renderCalendar(); };
 function dayGroup(ps){
   if (!ps.length) return "";
   if (ps.some(p=>groupOf(p.consistency)==="loose")) return "loose";
   if (ps.some(p=>groupOf(p.consistency)==="hard")) return "hard";
   return "ok";
 }
-function renderPoop(){
-  const poops = byKind("poop");
-  const byDay = {}; poops.forEach(p => { const k=dayKey(p.t); (byDay[k]=byDay[k]||[]).push(p); });
+/* calendar: which layers are shown */
+let calShow = {poop:true, period:true, meals:false, syms:null}; // syms: null = all symptoms, else Set of names
+try { const c = JSON.parse(localStorage.getItem("tummylog.cal") || "null"); if (c){ calShow.poop = c.poop !== false; calShow.period = c.period !== false; calShow.meals = !!c.meals; calShow.syms = c.syms ? new Set(c.syms) : null; } } catch(e){}
+function saveCalShow(){ try { localStorage.setItem("tummylog.cal", JSON.stringify({poop:calShow.poop, period:calShow.period, meals:calShow.meals, syms: calShow.syms ? [...calShow.syms] : null})); } catch(e){} }
+function symShown(name){ return calShow.syms === null || calShow.syms.has(name); }
+function renderCalToggles(types){
+  const box = $("#calToggles"); box.textContent = "";
+  const mk = (txt, on, fn) => { const b = document.createElement("button"); b.type = "button"; b.textContent = txt; b.setAttribute("aria-pressed", String(on)); b.onclick = () => { fn(); saveCalShow(); renderCalendar(); }; box.appendChild(b); };
+  mk("Poop tally", calShow.poop, () => calShow.poop = !calShow.poop);
+  mk("Period", calShow.period, () => calShow.period = !calShow.period);
+  mk("Meal count", calShow.meals, () => calShow.meals = !calShow.meals);
+  const br = document.createElement("span"); br.className = "sep"; box.appendChild(br);
+  const allOn = calShow.syms === null, noneOn = calShow.syms && calShow.syms.size === 0;
+  mk("All symptoms", allOn, () => calShow.syms = allOn ? new Set() : null);
+  mk("No symptoms", !!noneOn, () => calShow.syms = new Set());
+  types.forEach(t => mk(t, !allOn && symShown(t), () => {
+    if (calShow.syms === null) calShow.syms = new Set();
+    if (calShow.syms.has(t)) calShow.syms.delete(t); else calShow.syms.add(t);
+  }));
+}
+function renderCalendar(){
+  const all = list();
+  const byDay = {};
+  const add = (k, e) => (byDay[k] = byDay[k] || []).push(e);
+  all.forEach(e => { if (e.kind === "recipe") return; add(e.date || dayKey(e.t), e); });
+  const types = [...new Set(all.filter(e=>e.kind==="symptom").map(e=>e.symptom))].sort();
+  renderCalToggles(types);
   const y = pMonth.getFullYear(), m = pMonth.getMonth();
   $("#pMonth").textContent = pMonth.toLocaleDateString([], {month:"long", year:"numeric"});
   const today = new Date(); today.setHours(0,0,0,0);
   const daysIn = new Date(y, m+1, 0).getDate();
-  const lastDay = (y===today.getFullYear() && m===today.getMonth()) ? today.getDate() : daysIn;
-  let total=0, none=0, loose=0, hard=0, counted=0;
+  const symsOn = calShow.syms === null || calShow.syms.size > 0;
+  let total=0, none=0, loose=0, hard=0, counted=0, symDays=0, worstAll=0;
   for (let d=1; d<=daysIn; d++){
     const t = new Date(y,m,d).getTime(); if (t > today.getTime()) continue;
-    counted++; const ps = byDay[dayKey(t)] || []; total += ps.length; if (!ps.length) none++;
+    counted++; const es = byDay[dayKey(t)] || [];
+    const ps = es.filter(e=>e.kind==="poop"); total += ps.length; if (!ps.length) none++;
     ps.forEach(p => { const g=groupOf(p.consistency); if(g==="loose") loose++; if(g==="hard") hard++; });
+    const ss = es.filter(e=>e.kind==="symptom" && symShown(e.symptom)); if (ss.length) symDays++;
   }
-  $("#pStats").innerHTML = [
-    ['<b>'+total+'</b>','poops this month'],
-    ['<b>'+(counted? (total/counted).toFixed(1) : "0")+'</b>','a day on average'],
-    ['<b>'+none+'</b>','days with none'],
-    ['<b>'+loose+' / '+hard+'</b>','loose / hard']
-  ].map(([a,b])=>'<div class="stat">'+a+'<span>'+b+'</span></div>').join("");
+  const stats = [];
+  if (symsOn) stats.push(['<b>'+symDays+'</b>', (calShow.syms && calShow.syms.size===1 ? [...calShow.syms][0].toLowerCase() : "symptom") + ' days']);
+  if (calShow.poop) stats.push(['<b>'+total+'</b>','poops this month'], ['<b>'+(counted? (total/counted).toFixed(1) : "0")+'</b>','poops a day on average'], ['<b>'+loose+' / '+hard+'</b>','loose / hard poops']);
+  $("#pStats").innerHTML = stats.map(([a,b])=>'<div class="stat">'+a+'<span>'+esc(b)+'</span></div>').join("");
   const cal = $("#pcal"); cal.textContent = "";
   ["M","T","W","T","F","S","S"].forEach(d=>{ const el=document.createElement("div"); el.className="wd"; el.textContent=d; cal.appendChild(el); });
   const lead = (new Date(y,m,1).getDay()+6)%7;
   for (let i=0;i<lead;i++){ const b=document.createElement("button"); b.className="out"; b.tabIndex=-1; b.setAttribute("aria-hidden","true"); cal.appendChild(b); }
   for (let d=1; d<=daysIn; d++){
-    const t = new Date(y,m,d).getTime(), k = dayKey(t), ps = byDay[k] || [];
+    const t = new Date(y,m,d).getTime(), k = dayKey(t), es = byDay[k] || [];
+    const ps = es.filter(e=>e.kind==="poop"), ss = es.filter(e=>e.kind==="symptom" && symShown(e.symptom));
+    const ctx = es.find(e=>e.kind==="context"), meals = es.filter(e=>e.kind==="meal").length;
+    const worst = ss.reduce((a,e)=>Math.max(a, e.severity||1), 0);
     const b = document.createElement("button"); b.type="button";
     const fut = t > today.getTime();
-    const g = dayGroup(ps);
-    b.className = (g ? "g-"+g : "") + (fut ? " future" : "") + (t===today.getTime() ? " today" : "");
+    b.className = (worst && symsOn ? "s"+worst : "") + (fut ? " future" : "") + (t===today.getTime() ? " today" : "");
     b.setAttribute("aria-pressed", String(pSel===k));
-    const label = new Date(t).toLocaleDateString([], {weekday:"long", day:"numeric", month:"long"}) + ": " + (ps.length ? ps.length + " poop" + (ps.length===1?"":"s") : "no poops");
+    const parts = [];
+    if (symsOn) parts.push(ss.length ? ss.length + " symptom" + (ss.length===1?"":"s") + ", worst " + worst + "/5" : "no symptoms");
+    if (calShow.poop) parts.push(ps.length ? ps.length + " poop" + (ps.length===1?"":"s") : "no poops");
+    if (calShow.meals) parts.push(meals + " meals");
+    if (calShow.period && ctx && ctx.period && ctx.period !== "None") parts.push("period: " + ctx.period.toLowerCase());
+    const label = new Date(t).toLocaleDateString([], {weekday:"long", day:"numeric", month:"long"}) + ": " + parts.join(", ");
     b.setAttribute("aria-label", label); b.title = label;
-    b.innerHTML = '<span>'+d+'</span><span class="cnt">'+(ps.length||"")+'</span><span class="pdots">'+ps.slice(0,5).map(p=>'<i style="background:var(--'+({hard:"hard",ok:"meal",loose:"sym"}[groupOf(p.consistency)])+')"></i>').join("")+'</span>';
+    let h = '<span>'+d+'</span>';
+    if (calShow.meals && meals) h += '<span class="hint" style="font-size:.62rem;align-self:center">'+meals+' meals</span>';
+    if (calShow.poop && !fut) h += ps.length ? '<span class="badge g-'+dayGroup(ps)+'">'+ps.length+'</span>' : (es.length ? '<span class="badge none">0</span>' : '<span></span>');
+    if (calShow.period && ctx && ctx.period && ctx.period !== "None") h += '<i class="per"></i>';
+    b.innerHTML = h;
     if (fut) b.disabled = true;
-    b.onclick = () => { pSel = pSel===k ? null : k; renderPoop(); };
+    b.onclick = () => { pSel = pSel===k ? null : k; renderCalendar(); };
     cal.appendChild(b);
   }
+  const leg = [];
+  if (symsOn) leg.push('Shading = worst symptom: <span style="background:color-mix(in srgb,var(--sym) 16%,var(--bg))"></span>mild <span style="background:color-mix(in srgb,var(--sym) 82%,var(--bg))"></span>severe');
+  if (calShow.poop) leg.push('Badge = poops: <span style="background:var(--hard)"></span>hard <span style="background:var(--meal)"></span>normal <span style="background:var(--sym)"></span>loose');
+  if (calShow.period) leg.push('<span style="background:var(--ctx);height:4px"></span>period');
+  $("#calLegend").innerHTML = leg.map(x => '<div class="lgi">'+x+'</div>').join("");
   const det = $("#pDay"); det.textContent = "";
   if (pSel){
-    const ps = (byDay[pSel] || []).sort((a,b)=>a.t-b.t);
-    const h = document.createElement("h3"); h.style.marginTop="6px"; h.textContent = new Date(keyToT(pSel)).toLocaleDateString([], {weekday:"long", day:"numeric", month:"long"}); det.appendChild(h);
+    const es = (byDay[pSel] || []).filter(e => e.kind !== "symcheck" || !e.count).filter(e => e.kind !== "symptom" || symShown(e.symptom)).sort((a,b)=>a.t-b.t);
+    const h = document.createElement("div"); h.className = "actions"; h.style.cssText = "justify-content:space-between;margin-top:6px";
+    const h3 = document.createElement("h3"); h3.textContent = new Date(keyToT(pSel)).toLocaleDateString([], {weekday:"long", day:"numeric", month:"long"});
+    const go = document.createElement("button"); go.className = "btn ghost small"; go.textContent = "Log for this day"; const key = pSel;
+    go.onclick = () => { showView("log"); setLogDay(key); window.scrollTo({top:0}); };
+    h.append(h3, go); det.appendChild(h);
     const wrap = document.createElement("div"); wrap.style.cssText="display:flex;flex-direction:column;gap:8px;margin-top:8px";
-    if (!ps.length){ const p=document.createElement("p"); p.className="hint"; p.textContent="No poops logged this day."; wrap.appendChild(p); }
-    ps.forEach(e => wrap.appendChild(entryRow(e, renderPoop)));
+    if (!es.length){ const p=document.createElement("p"); p.className="hint"; p.textContent="Nothing logged this day."; wrap.appendChild(p); }
+    es.forEach(e => wrap.appendChild(entryRow(e, renderCalendar)));
     det.appendChild(wrap);
   }
 }
@@ -1144,7 +1455,13 @@ function entryRow(e, rerender){
   const ops = confirmId===e.id
     ? '<button class="danger" data-op="yes">Delete</button><button data-op="no">Keep</button>'
     : '<button data-op="edit">Edit</button><button data-op="del">Delete</button>';
-  row.innerHTML = '<span class="time">'+esc(time)+'</span><div class="what"><div class="kind">'+kind+'</div><div class="main">'+main+'</div>'+(note?'<div class="note">'+esc(note)+'</div>':'')+'</div><div class="ops">'+ops+'</div>';
+  let tags = "";
+  if (e.kind==="meal"){
+    const al = new Set(), fh = new Set();
+    (e.foods||[]).forEach(f => { const r = recognise(f); r.allergens.forEach(a=>al.add(ALLERGEN_NAMES[a]||a)); r.fodmapTypes.forEach(t=>fh.add(t)); if (r.fodmap==="high" && !r.fodmapTypes.length) fh.add("high"); });
+    tags = [...al].map(a=>'<span class="tag alg">'+esc(a)+'</span>').join("") + (fh.size ? '<span class="tag fhi">High FODMAP: '+esc([...fh].join(", "))+'</span>' : "");
+  }
+  row.innerHTML = '<span class="time">'+esc(time)+'</span><div class="what"><div class="kind">'+kind+'</div><div class="main">'+main+'</div>'+(note?'<div class="note">'+esc(note)+'</div>':'')+(tags?'<div class="tags">'+tags+'</div>':'')+'</div><div class="ops">'+ops+'</div>';
   row.querySelector(".ops").onclick = ev => {
     const op = ev.target.dataset && ev.target.dataset.op; if(!op) return;
     if (op==="edit") startEdit(e);
@@ -1156,8 +1473,8 @@ function entryRow(e, rerender){
 }
 function startEdit(e){
   if (e.kind==="poop"){
-    showView("poop"); editing.poop=e.id; poopC=e.consistency; pressSeg($("#bristol"),poopC); $("#bdesc").textContent=BRISTOL[poopC].desc;
-    $("#poopTime").value=toLocalInput(e.t); $("#poopNote").value=e.notes||""; $("#poopSave").textContent="Update poop"; $("#poopCancel").hidden=false;
+    showView("log"); editing.poop=e.id; setLogDay(dayKey(e.t)); poopC=e.consistency; pressSeg($("#bristol"),poopC); $("#bdesc").textContent=BRISTOL[poopC].desc;
+    $("#poopTime").value=hhmm(e.t); $("#poopNote").value=e.notes||""; $("#poopSave").textContent="Update poop"; $("#poopCancel").hidden=false;
     $("#poopForm").scrollIntoView({behavior:"smooth"}); return;
   }
   showView("log");
@@ -1167,13 +1484,13 @@ function startEdit(e){
     if (e.recipeId && recipes().some(r=>r.id===e.recipeId)){ setMealRecipe(e.recipeId, e.ingredients); $("#saveVar").checked=false; chips=(e.extras||[]).slice(); }
     else chips=(e.foods||[]).slice();
     renderChips();
-    $("#mealTime").value=toLocalInput(e.t); $("#mealNote").value=e.notes||""; $("#mealSave").textContent="Update meal"; $("#mealCancel").hidden=false;
+    setLogDay(dayKey(e.t)); $("#mealTime").value=hhmm(e.t); $("#mealNote").value=e.notes||""; $("#mealSave").textContent="Update meal"; $("#mealCancel").hidden=false;
     $("#mealForm").scrollIntoView({behavior:"smooth"});
   } else if (e.kind==="symptom" || e.kind==="symcheck"){
-    loadSymDay(e.date || dayKey(e.t));
+    setLogDay(e.date || dayKey(e.t));
     $("#symForm").scrollIntoView({behavior:"smooth"});
   } else if (e.kind==="context"){
-    $("#ctxDate").value = e.date; loadCtx(e.date); $("#ctxForm").scrollIntoView({behavior:"smooth"});
+    setLogDay(e.date); $("#ctxForm").scrollIntoView({behavior:"smooth"});
   }
 }
 function renderDiary(){
@@ -1205,7 +1522,8 @@ function symptomEvents(all, filter){
   });
   return filter ? ev.filter(e=>e.symptom===filter) : ev;
 }
-function analyse(all, fromH, toH, symFilter){
+function analyse(all, fromH, toH, symFilter, by){
+  const keyFn = (PAT_KINDS[by] || PAT_KINDS.foods).fn;
   const meals = all.filter(e=>e.kind==="meal");
   const syms = symptomEvents(all, symFilter);
   const lo = fromH*H, hi = toH*H;
@@ -1214,9 +1532,7 @@ function analyse(all, fromH, toH, symFilter){
   const foods = {}; let hitMeals = 0;
   meals.forEach(m => {
     const w = followed(m); if (w) hitMeals++;
-    const seen = new Set();
-    (m.foods||[]).forEach(f => { const k=norm(f); if(!k||seen.has(k)) return; seen.add(k);
-      const o = foods[k] || (foods[k]={name:f, n:0, hits:0}); o.n++; if(w) o.hits++; });
+    keyFn(m).forEach(k => { const o = foods[k] || (foods[k]={name:k, n:0, hits:0}); o.n++; if(w) o.hits++; });
   });
   const base = meals.length ? hitMeals/meals.length : 0;
   const rows = Object.values(foods).map(o => {
@@ -1246,7 +1562,10 @@ function renderPatterns(){
   if (types.includes(cur)) sel.value = cur;
   let from = +$("#winFrom").value, to = +$("#winTo").value;
   if (to <= from) to = from + 4;
-  const r = analyse(all, from, to, sel.value);
+  const by = $("#patBy").value || "foods", kindLabel = PAT_KINDS[by].label;
+  const r = analyse(all, from, to, sel.value, by);
+  $("#tableTitle").textContent = {foods:"Foods", allergens:"Allergens", groups:"Food groups", fodmap:"FODMAP groups"}[by] + " ranked by link to symptoms";
+  $("#colName").textContent = kindLabel[0].toUpperCase() + kindLabel.slice(1);
   const symWord = sel.value ? sel.value.toLowerCase() : "symptoms";
 
   const sum = $("#summary");
@@ -1258,12 +1577,12 @@ function renderPatterns(){
     let s = 'Across '+r.meals+' meals, '+esc(symWord)+' followed within '+fmtH(from)+' to '+fmtH(to)+' about <strong style="color:var(--ink)">'+Math.round(r.base*100)+'%</strong> of the time. ';
     if (strong.length) s += 'The clearest suspects are <strong>'+strong.slice(0,3).map(x=>esc(x.name)).join(", ")+'</strong>.' + (poss.length? ' Also worth watching: '+poss.slice(0,3).map(x=>esc(x.name)).join(", ")+'.' : '');
     else if (poss.length) s += 'Nothing stands out strongly yet. Worth watching: <strong>'+poss.slice(0,3).map(x=>esc(x.name)).join(", ")+'</strong>.';
-    else s += 'No food stands out yet. Keep logging, or try a different time window.';
+    else s += 'No '+kindLabel+' stands out yet. Keep logging, or try a different time window.';
     sum.innerHTML = s;
   }
 
   const tb = $("#foodTable"); tb.textContent="";
-  if (!r.rows.length) tb.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">Foods you log will appear here.</td></tr>';
+  if (!r.rows.length) tb.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">'+(by==="foods" ? "Foods you log will appear here." : "Nothing recognised yet. Common foods are tagged automatically as you log them.")+'</td></tr>';
   r.rows.slice(0,25).forEach(x => {
     const tr = document.createElement("tr");
     const [label, cls] = VERDICT[x.verdict];
@@ -1320,7 +1639,7 @@ function renderCtxPatterns(all, filter){
     box.appendChild(row);
   });
 }
-["#winFrom","#winTo","#symFilter"].forEach(s => $(s).addEventListener("change", renderPatterns));
+["#winFrom","#winTo","#symFilter","#patBy"].forEach(s => $(s).addEventListener("change", renderPatterns));
 
 /* ---------- demo data ---------- */
 function startDemo(){
@@ -1370,9 +1689,65 @@ function startDemo(){
 }
 $("#exitDemo").onclick = () => { demo = null; $("#demoBanner").hidden = true; render(); };
 
-/* ---------- export ---------- */
+/* ---------- files out: backup and CSV ---------- */
+async function saveFile(filename, text, type){
+  if (downloads){ await downloads.save({filename, data: text}); return true; }
+  if (inClaude) throw new Error("unavailable");
+  const url = URL.createObjectURL(new Blob([text], {type}));
+  const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
+}
+function lastBackup(){ try { return +localStorage.getItem("tummylog.lastBackup") || 0; } catch(e){ return 0; } }
+async function doBackup(){
+  const data = JSON.stringify({app:"tummy-log", version:1, exported:new Date().toISOString(), entries: entries.map(clean)}, null, 1);
+  try {
+    await saveFile("tummy-log-backup-" + dayKey(Date.now()) + ".json", data, "application/json");
+    try { localStorage.setItem("tummylog.lastBackup", String(Date.now())); } catch(e){}
+    flash("#backupToast", "Backup downloaded. Keep it somewhere safe, like your email or cloud drive.");
+  } catch(e){ flash("#backupToast", "The backup couldn't be saved here. Try the website version.", true); }
+  renderSafety();
+}
+$("#backupBtn").onclick = doBackup;
+$("#backupNagBtn").onclick = doBackup;
+$("#restoreFile").addEventListener("change", async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    const incoming = Array.isArray(j) ? j : j.entries;
+    if (!Array.isArray(incoming)) throw new Error("bad");
+    const ok = incoming.filter(x => x && x.id && x.kind);
+    if (demo){ demo = null; $("#demoBanner").hidden = true; }
+    let added = 0;
+    for (const x of ok){ if (!entries.some(y => y.id === x.id)) added++; await saveEntry(x); }
+    flash("#backupToast", "Restored " + ok.length + " entries (" + added + " new).");
+  } catch(err){ flash("#backupToast", "That file isn't a Tummy Log backup.", true); }
+  e.target.value = "";
+});
+function renderSafety(){
+  const lb = lastBackup();
+  const ago = lb ? Math.floor((Date.now() - lb) / DAY) : null;
+  const when = lb ? (ago === 0 ? "today" : ago === 1 ? "yesterday" : ago + " days ago") : "never";
+  if (inClaude){
+    $("#storeNote").textContent = mode === "db" ? "Your log is saved to your Claude account, so it's kept when you close the page and syncs across your devices." : "Your log is saved in this browser.";
+    $("#safetyTips").innerHTML = "<li>Last backup: " + esc(when) + ".</li>";
+  } else {
+    $("#storeNote").textContent = "Your log is saved in this browser on this device. It stays when you close the page or restart your phone, but it can be lost if browser data is cleared or the phone is replaced.";
+    $("#safetyTips").innerHTML = [
+      "Last backup: " + when + ". Download one every week or so and keep it somewhere safe.",
+      "On iPhone, add Tummy Log to your Home Screen (Share, then Add to Home Screen) and open it from there. Safari can clear data for sites you haven't visited in 7 days, but not for Home Screen apps.",
+      "Don't use a private or incognito window. It deletes everything when it's closed.",
+      "To move to a new phone, download a backup on the old one and restore it on the new one."
+    ].map(t => "<li>" + esc(t) + "</li>").join("");
+  }
+  const real = entries.filter(e => e.kind !== "recipe").length;
+  const nag = !demo && real >= 10 && (!lb || Date.now() - lb > 7*DAY) && !(inClaude && mode === "db");
+  $("#backupNag").hidden = !nag;
+  $("#backupNagText").textContent = lb ? "Your last backup was " + when + "." : "You haven't backed up your log yet.";
+}
+if (!inClaude && navigator.storage && navigator.storage.persist){ navigator.storage.persist().catch(()=>{}); }
+
 $("#exportBtn").onclick = async () => {
-  if (!downloads) return;
   const rows = [["date","time","type","detail","severity or consistency","notes"]].concat(
     list().filter(e=>e.kind!=="recipe" && e.kind!=="symcheck").sort((a,b)=>a.t-b.t).map(e => { const d=new Date(e.t);
       const type = e.kind==="meal"?(e.mealType||"Meal"):e.kind==="symptom"?"Symptom":e.kind==="poop"?"Poop":"Day context";
@@ -1380,11 +1755,11 @@ $("#exportBtn").onclick = async () => {
       const lvl = e.kind==="symptom"?e.severity:e.kind==="poop"?e.consistency:"";
       return [d.toLocaleDateString("en-CA"), e.kind==="context"?"":fmtTime(e.t), type, detail, lvl, e.notes||""]; }));
   const csv = rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
-  try { await downloads.save({filename:"tummy-log.csv", data: csv}); } catch(e){}
+  try { await saveFile("tummy-log.csv", csv, "text/csv"); } catch(e){}
 };
 
 /* ---------- views ---------- */
-const VIEWS = ["log","diary","poop","recipes","patterns"];
+const VIEWS = ["log","diary","calendar","recipes","patterns"];
 function showView(v){
   if (!VIEWS.includes(v)) v = "log";
   VIEWS.forEach(n => { $("#view-"+n).hidden = n!==v; $("#tab-"+n).setAttribute("aria-selected", String(n===v)); });
@@ -1394,19 +1769,21 @@ function showView(v){
 }
 document.querySelectorAll(".tab").forEach(b => b.onclick = () => showView(b.dataset.view));
 document.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => $("#"+b.dataset.jump).scrollIntoView({behavior:"smooth"}));
-document.querySelectorAll("[data-goto]").forEach(b => b.onclick = () => showView(b.dataset.goto));
 function render(){
   renderRecent(); fillRecipePick();
   if (!$("#view-diary").hidden) renderDiary();
-  if (!$("#view-poop").hidden) renderPoop();
+  if (!$("#view-calendar").hidden) renderCalendar();
+  if (!$("#view-log").hidden) daySummary();
+  renderSafety();
   if (!$("#view-recipes").hidden) renderRecipes();
   if (!$("#view-patterns").hidden) renderPatterns();
 }
 
 /* ---------- boot ---------- */
 entries = lsRead();
-resetMeal(); resetSym(); resetPoop(); resetRecipe();
-$("#ctxDate").value = dayKey(Date.now()); loadCtx(dayKey(Date.now()));
+$("#exportBtn").hidden = inClaude;
+resetMeal(); resetPoop(); resetRecipe();
+setLogDay(dayKey(Date.now()));
 let startView = "log"; try { startView = localStorage.getItem("tummylog.view") || "log"; } catch(e){}
 showView(startView);
 connect();
