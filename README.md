@@ -12,7 +12,7 @@ Open the app in any browser, on a phone or a computer. On a phone, use your brow
   - **Day context**: stress level, period, hours of sleep, exercise and any other illness.
 - **Diary**: everything logged, grouped by day, with edit and delete.
 - **Poop**: log each poop with its consistency on the Bristol stool scale (1 to 7). A month calendar shows how many times you went each day, coloured hard, normal or loose. Tap a day to see its entries.
-- **Recipes**: save recipes you make often, with ingredients and amounts. Log one as a meal in one tap. If you change it that day (add, remove or change the amount of an ingredient), the change is saved as a dated variation under the main recipe, ready to reuse.
+- **Recipes**: save recipes you make often. Each ingredient has a quantity (whole numbers, decimals or fractions like 1/2) and a unit such as g, ml, tsp, cloves or tins. Log one as a meal in one tap. If you change it that day (add, remove or change the amount of an ingredient), the change is saved as a dated variation under the main recipe, ready to reuse.
 - **Patterns**: for each food, how often a symptom followed within a chosen time window (2 to 12 hours by default), compared with the usual rate across all meals. Hard poops (types 1 to 2) and loose poops (types 6 to 7) count as symptoms. A second table compares symptom days with and without each context factor. Tap "See an example" to try it with made-up data.
 
 ## Barcode scanning

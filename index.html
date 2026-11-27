@@ -101,8 +101,9 @@ label.check input{width:20px;height:20px;accent-color:var(--meal)}
 .sublink{display:flex;gap:8px;flex-wrap:wrap}
 /* ingredient editor */
 .ings{display:flex;flex-direction:column;gap:6px}
-.ing{display:grid;grid-template-columns:1fr 110px 36px;gap:6px;align-items:center}
-.ing input{padding:8px 10px}
+.ing{display:grid;grid-template-columns:minmax(0,1fr) 64px 104px 36px;gap:6px;align-items:center}
+.ing input,.ing select{padding:8px 10px;min-width:0}
+@media (max-width:480px){.ing{grid-template-columns:72px minmax(0,1fr) 36px;padding-bottom:6px;border-bottom:1px dashed var(--line)}.ing .nm{grid-column:1 / -1}}
 .ing button{border:0;background:var(--sunk);color:var(--muted);border-radius:8px;height:36px;cursor:pointer;font-size:1.1rem}
 .varbox{background:var(--meal-soft);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
 .diff{font-size:.85rem;color:var(--muted)}
@@ -416,7 +417,7 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
       <h2 id="recipeFormTitle">Add a recipe</h2>
       <label for="recipeName">Recipe name<input id="recipeName" placeholder="Spaghetti bolognese"></label>
       <div>
-        <div class="lbl">Ingredients and amounts</div>
+        <div class="lbl">Ingredients <span class="hint">Name, quantity and unit, e.g. garlic, 5, cloves</span></div>
         <div class="ings" id="recipeIngs" style="margin-top:6px"></div>
         <div class="actions" style="margin-top:6px"><button type="button" class="btn ghost small" id="recipeIngAdd">+ Add ingredient</button></div>
       </div>
@@ -572,24 +573,64 @@ function segPicker(sel, cb){ $(sel).addEventListener("click", e => { const b=e.t
 function flash(id, msg, bad){ const el=$(id); el.textContent=msg; el.style.color = bad?"var(--sym)":"var(--ok)"; clearTimeout(el._t); el._t=setTimeout(()=>el.textContent="",3500); }
 
 /* ingredient row editor, used by meals and recipes */
+/* units: [singular, plural]; metric units don't change */
+const UNITS = [
+  ["", ""], ["g","g"], ["kg","kg"], ["ml","ml"], ["l","l"], ["tsp","tsp"], ["tbsp","tbsp"], ["cup","cups"],
+  ["clove","cloves"], ["tin","tins"], ["can","cans"], ["jar","jars"], ["pack","packs"], ["bag","bags"], ["bottle","bottles"],
+  ["slice","slices"], ["piece","pieces"], ["rasher","rashers"], ["fillet","fillets"], ["stick","sticks"], ["sheet","sheets"],
+  ["handful","handfuls"], ["pinch","pinches"], ["bunch","bunches"], ["sprig","sprigs"], ["splash","splashes"], ["to taste","to taste"]
+];
+const FRAC = {"½":.5,"¼":.25,"¾":.75,"⅓":1/3,"⅔":2/3};
+function parseQty(s){
+  s = String(s||"").trim(); if (!s) return null;
+  if (FRAC[s] != null) return FRAC[s];
+  const m = s.match(/^(\d+)\s*([½¼¾⅓⅔])$/); if (m) return +m[1] + FRAC[m[2]];
+  const f = s.match(/^(\d+)\s*\/\s*(\d+)$/); if (f && +f[2]) return +f[1] / +f[2];
+  const n = parseFloat(s.replace(",", ".")); return isNaN(n) ? null : n;
+}
+function fmtQty(q){ if (q == null) return ""; const w = Math.floor(q), r = q - w; const fr = Object.entries(FRAC).find(([,v]) => Math.abs(v - r) < 0.01); if (fr && r) return (w ? w : "") + fr[0]; return String(Math.round(q*100)/100); }
+function fmtAmount(q, unit){
+  if (unit === "to taste") return "to taste";
+  const u = UNITS.find(x => x[0] === unit);
+  const uTxt = !unit ? "" : u ? (q != null && q !== 1 && !(q < 1 && q > 0) ? u[1] : u[0]) : unit;
+  return [fmtQty(q), uTxt].filter(Boolean).join(" ");
+}
+function parseAmount(a){
+  a = String(a||"").trim(); if (!a) return {qty:null, unit:""};
+  if (/^to taste$/i.test(a)) return {qty:null, unit:"to taste"};
+  const m = a.match(/^([\d.,\/½¼¾⅓⅔]+(?:\s*[½¼¾⅓⅔])?)\s*(.*)$/);
+  const qty = m ? parseQty(m[1]) : null, rest = (m ? m[2] : a).trim().toLowerCase();
+  const u = UNITS.find(x => x[0] === rest || x[1] === rest);
+  return {qty, unit: u ? u[0] : rest};
+}
 function ingEditor(container, rows, onChange){
+  rows.forEach(r => { if (r.qty === undefined && r.unit === undefined){ const p = parseAmount(r.amount); r.qty = p.qty; r.unit = p.unit; } });
   function draw(){
     container.textContent = "";
     rows.forEach((r, i) => {
       const row = document.createElement("div"); row.className = "ing";
-      const n = document.createElement("input"); n.value = r.name; n.placeholder = "Ingredient"; n.setAttribute("aria-label","Ingredient name");
-      const a = document.createElement("input"); a.value = r.amount || ""; a.placeholder = "Amount"; a.setAttribute("aria-label","Amount");
-      const x = document.createElement("button"); x.type="button"; x.textContent="×"; x.setAttribute("aria-label","Remove ingredient");
+      const n = document.createElement("input"); n.value = r.name; n.placeholder = "Ingredient"; n.setAttribute("aria-label","Ingredient name"); n.className = "nm";
+      const q = document.createElement("input"); q.type = "text"; q.inputMode = "decimal"; q.value = fmtQty(r.qty); q.placeholder = "Qty"; q.setAttribute("aria-label","Quantity"); q.className = "qt";
+      const u = document.createElement("select"); u.setAttribute("aria-label","Unit"); u.className = "un";
+      const opts = UNITS.slice(); if (r.unit && !opts.some(x=>x[0]===r.unit)) opts.push([r.unit, r.unit]);
+      opts.forEach(([s, p]) => { const o = document.createElement("option"); o.value = s; o.textContent = !s ? "no unit" : p; u.appendChild(o); });
+      u.value = r.unit || "";
+      const x = document.createElement("button"); x.type="button"; x.textContent="×"; x.setAttribute("aria-label","Remove ingredient"); x.className = "rm";
+      const sync = () => { r.amount = fmtAmount(r.qty, r.unit); onChange && onChange(); };
       n.oninput = () => { r.name = n.value; onChange && onChange(); };
-      a.oninput = () => { r.amount = a.value; onChange && onChange(); };
+      q.oninput = () => { r.qty = parseQty(q.value); sync(); };
+      u.onchange = () => { r.unit = u.value; if (r.unit === "to taste"){ r.qty = null; q.value = ""; } sync(); };
       x.onclick = () => { rows.splice(i,1); draw(); onChange && onChange(); };
-      row.append(n, a, x); container.appendChild(row);
+      row.append(n, q, u, x); container.appendChild(row);
     });
   }
   draw();
-  return { draw, add(){ rows.push({name:"", amount:""}); draw(); const ins = container.querySelectorAll(".ing input"); if (ins.length) ins[ins.length-2].focus(); onChange && onChange(); } };
+  return { draw, add(){ rows.push({name:"", qty:null, unit:"", amount:""}); draw(); const ins = container.querySelectorAll(".ing input.nm"); if (ins.length) ins[ins.length-1].focus(); onChange && onChange(); } };
 }
-const tidyIngs = rows => rows.map(r => ({name: r.name.trim(), amount: (r.amount||"").trim()})).filter(r => r.name);
+const tidyIngs = rows => rows.map(r => {
+  const qty = r.qty === undefined ? parseAmount(r.amount).qty : r.qty, unit = r.unit === undefined ? parseAmount(r.amount).unit : (r.unit || "");
+  return {name: r.name.trim(), qty: qty == null ? null : qty, unit, amount: fmtAmount(qty, unit)};
+}).filter(r => r.name);
 function ingDiff(base, now){
   const bm = new Map(base.map(r => [norm(r.name), r])), nm = new Map(now.map(r => [norm(r.name), r]));
   const add = [], rem = [], chg = [];
@@ -937,7 +978,7 @@ function renderPoop(){
 }
 
 /* ---------- recipes ---------- */
-let recipeRows = [{name:"",amount:""}], recipeEd = null;
+let recipeRows = [], recipeEd = null;
 function resetRecipe(){
   recipeRows.length = 0; recipeRows.push({name:"",amount:""},{name:"",amount:""});
   recipeEd = ingEditor($("#recipeIngs"), recipeRows);
@@ -1225,8 +1266,8 @@ function startDemo(){
   const pick = a => a[Math.floor(rnd()*a.length)];
   const now = new Date(); now.setHours(0,0,0,0);
   const id = () => newId() + out.length;
-  const bol = {id:"demo-bol", kind:"recipe", name:"Spaghetti bolognese", parentId:null, createdAt:now.getTime()-30*DAY, notes:"Serves 2", ingredients:[{name:"beef mince",amount:"500 g"},{name:"onion",amount:"1"},{name:"garlic",amount:"2 cloves"},{name:"chopped tomatoes",amount:"400 g tin"},{name:"spaghetti",amount:"200 g"}]};
-  const bolV = {id:"demo-bol-v", kind:"recipe", name:"Spaghetti bolognese", parentId:"demo-bol", variationDate:now.getTime()-9*DAY+19*H, createdAt:now.getTime()-9*DAY, notes:"", ingredients:[{name:"beef mince",amount:"500 g"},{name:"chopped tomatoes",amount:"400 g tin"},{name:"spaghetti",amount:"200 g"},{name:"carrot",amount:"1"}]};
+  const bol = {id:"demo-bol", kind:"recipe", name:"Spaghetti bolognese", parentId:null, createdAt:now.getTime()-30*DAY, notes:"Serves 2", ingredients:[{name:"beef mince",amount:"500 g"},{name:"onion",amount:"1"},{name:"garlic",amount:"2 cloves"},{name:"chopped tomatoes",amount:"1 tin"},{name:"spaghetti",amount:"200 g"}]};
+  const bolV = {id:"demo-bol-v", kind:"recipe", name:"Spaghetti bolognese", parentId:"demo-bol", variationDate:now.getTime()-9*DAY+19*H, createdAt:now.getTime()-9*DAY, notes:"", ingredients:[{name:"beef mince",amount:"500 g"},{name:"chopped tomatoes",amount:"1 tin"},{name:"spaghetti",amount:"200 g"},{name:"carrot",amount:"1"}]};
   const oats = {id:"demo-oats", kind:"recipe", name:"Overnight oats", parentId:null, createdAt:now.getTime()-30*DAY, notes:"", ingredients:[{name:"oats",amount:"50 g"},{name:"milk",amount:"150 ml"},{name:"honey",amount:"1 tsp"},{name:"blueberries",amount:"handful"}]};
   out.push(bol, bolV, oats);
   const B = [["porridge","milk","banana"],["toast","butter","coffee"],["eggs","toast","coffee"],["yoghurt","granola","berries"],["toast","peanut butter","tea"]];
