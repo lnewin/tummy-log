@@ -6,22 +6,31 @@ A food and stomach-symptom diary that spots which foods tend to come before symp
 
 Open the app in any browser, on a phone or a computer. On a phone, use your browser's "Add to Home Screen" option to keep it one tap away.
 
-- **Log**: add meals (list each food or ingredient) and symptoms (type, severity 1 to 5, when it started).
+- **Log**
+  - **Meals**: list each food or ingredient, pick a saved recipe, or scan a barcode on packaged food.
+  - **Symptoms**: bloating, stomach pain, cramps, nausea, wind, heartburn, croakiness (with an "I burped" option), eye twitch or other, each rated 1 to 5.
+  - **Day context**: stress level, period, hours of sleep, exercise and any other illness.
 - **Diary**: everything logged, grouped by day, with edit and delete.
-- **Patterns**: for each food, how often a symptom followed within a chosen time window (2 to 12 hours by default), compared with the usual rate across all meals. Tap "See an example" to try it with made-up data.
+- **Poop**: log each poop with its consistency on the Bristol stool scale (1 to 7). A month calendar shows how many times you went each day, coloured hard, normal or loose. Tap a day to see its entries.
+- **Recipes**: save recipes you make often, with ingredients and amounts. Log one as a meal in one tap. If you change it that day (add, remove or change the amount of an ingredient), the change is saved as a dated variation under the main recipe, ready to reuse.
+- **Patterns**: for each food, how often a symptom followed within a chosen time window (2 to 12 hours by default), compared with the usual rate across all meals. Hard poops (types 1 to 2) and loose poops (types 6 to 7) count as symptoms. A second table compares symptom days with and without each context factor. Tap "See an example" to try it with made-up data.
+
+## Barcode scanning
+
+Tap **Scan a barcode** on the meal form. It uses the phone's camera, or you can take a photo of the barcode or type the number. The product's name and ingredients come from [Open Food Facts](https://world.openfoodfacts.org), a free public food database, and you pick which ones to add. Scanning needs the site to be served over HTTPS (Vercel and GitHub Pages both do this) and an internet connection. Some products aren't in the database; those have to be typed in by hand.
 
 ## Where the data is kept
 
 The whole app is one file, `index.html`, with no server and no sign-up.
 
-- Opened from a normal web address (for example GitHub Pages), entries are saved in that browser on that device only. Clearing browser data deletes them, and they don't sync between a phone and a computer.
-- Opened as a Claude artifact, entries are saved to the viewer's Claude account and sync across their devices. Each person only sees their own entries.
+- Opened from a normal web address (for example Vercel), entries are saved in that browser on that device only. Clearing browser data deletes them, and they don't sync between a phone and a computer.
+- Opened as a Claude artifact, entries are saved to the viewer's Claude account and sync across their devices. Each person only sees their own entries. Barcode scanning doesn't work inside Claude.
 
-## Hosting it with GitHub Pages
+## Hosting
 
-1. In this repository, go to **Settings → Pages**.
-2. Under **Build and deployment**, set **Source** to "Deploy from a branch", pick `main` and `/ (root)`, then **Save**.
-3. After a minute the app is live at `https://<owner>.github.io/<repository-name>/`.
+**Vercel:** at vercel.com/new, import this repository, leave Framework Preset as "Other" with no build settings, and deploy. Every push to `main` updates the site.
+
+**GitHub Pages** (public repositories on free accounts): Settings → Pages, deploy from branch `main`, folder `/ (root)`.
 
 ## How the patterns work
 
