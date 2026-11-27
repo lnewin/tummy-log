@@ -9,6 +9,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -105,6 +107,13 @@ label.check input{width:20px;height:20px;accent-color:var(--meal)}
 .actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .toast{font-size:.9rem;color:var(--ok);min-height:1.2em}
 .sublink{display:flex;gap:8px;flex-wrap:wrap}
+/* account */
+.acct{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right}
+.acctline{font-size:.8rem;color:var(--muted);overflow-wrap:anywhere}
+.linkbtn{border:0;background:transparent;color:var(--meal);font:600 .85rem var(--body);cursor:pointer;padding:4px 2px;text-decoration:underline;text-underline-offset:3px}
+.authbox{max-width:440px;margin:0 auto;width:100%}
+#authToast:empty{display:none}
+.authlinks{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 /* day bar */
 .daybar{gap:10px;padding:14px}
 .dayrow{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center}
@@ -276,10 +285,30 @@ details p{color:var(--muted);font-size:.9rem;margin:8px 0 0}
       <h1>Tummy Log</h1>
       <p class="sub">Log what you eat and how your stomach feels. Patterns show up over time.</p>
     </div>
-    <span class="status" id="status">Saved on this device</span>
+    <div class="acct">
+      <span class="status" id="status">Saved on this device</span>
+      <span class="acctline" id="acctLine" hidden><span id="acctEmail"></span> <button type="button" class="linkbtn" id="signOutBtn">Log out</button></span>
+    </div>
   </header>
 
-  <nav class="tabs" role="tablist">
+  <!-- ACCOUNT -->
+  <section class="view" id="authView" hidden>
+    <form class="panel meal authbox" id="authForm" autocomplete="on">
+      <h2 id="authTitle">Log in</h2>
+      <p class="hint" style="margin:0" id="authIntro">Your diary is saved to your account, so you can open it on any phone, tablet or computer.</p>
+      <label for="authEmail" id="authEmailWrap">Email<input type="email" id="authEmail" autocomplete="email" inputmode="email" required></label>
+      <label for="authPass" id="authPassWrap">Password<input type="password" id="authPass" autocomplete="current-password" minlength="8"></label>
+      <button class="btn meal" type="submit" id="authSubmit">Log in</button>
+      <p class="toast" id="authToast" role="status" style="margin:0"></p>
+      <div class="authlinks">
+        <button type="button" class="linkbtn" id="toSignup">New here? Create an account</button>
+        <button type="button" class="linkbtn" id="toLogin" hidden>Already have an account? Log in</button>
+        <button type="button" class="linkbtn" id="toReset">Forgot your password?</button>
+      </div>
+    </form>
+  </section>
+
+  <nav class="tabs" role="tablist" id="tabs">
     <button class="tab" role="tab" id="tab-log" aria-selected="true" data-view="log">Log</button>
     <button class="tab" role="tab" id="tab-diary" aria-selected="false" data-view="diary">Diary</button>
     <button class="tab" role="tab" id="tab-calendar" aria-selected="false" data-view="calendar">Calendar</button>
@@ -736,8 +765,175 @@ let db = null, col = null, uid = null, downloads = null;
 let mode = "local";
 const inClaude = !!(window.claude && window.claude.use);
 
-function lsRead(){ try { return JSON.parse(localStorage.getItem(LS_KEY) || "[]") || []; } catch(e){ return []; } }
-function lsWrite(){ try { localStorage.setItem(LS_KEY, JSON.stringify(entries)); } catch(e){} }
+/* Accounts (website only): Supabase login, entries stored per user in the "entries" table.
+   The device keeps a copy so the app works offline; changes queue up and sync when back online. */
+const CFG = window.TUMMY_CONFIG || {};
+const cloudConfigured = !inClaude && !!(CFG.supabaseUrl && CFG.supabaseAnonKey);
+let sb = null, user = null;
+const storeKey = () => user ? "tummylog.cache:" + user.id : LS_KEY;
+const pendKey = () => "tummylog.pending:" + (user ? user.id : "");
+function lsRead(){ try { return JSON.parse(localStorage.getItem(storeKey()) || "[]") || []; } catch(e){ return []; } }
+function lsWrite(){ try { localStorage.setItem(storeKey(), JSON.stringify(entries)); } catch(e){} }
+function pendRead(){ try { return JSON.parse(localStorage.getItem(pendKey()) || "{}") || {}; } catch(e){ return {}; } }
+function pendWrite(p){ try { localStorage.setItem(pendKey(), JSON.stringify(p)); } catch(e){} }
+function queue(id, op){ const p = pendRead(); p[id] = op; pendWrite(p); flushSoon(); }
+let flushing = false, flushAgain = false, flushTimer = 0;
+function flushSoon(){ clearTimeout(flushTimer); flushTimer = setTimeout(flush, 150); }
+async function flush(){
+  if (mode !== "cloud" || !user) return;
+  if (flushing){ flushAgain = true; return; }
+  const p = pendRead(), ids = Object.keys(p);
+  if (!ids.length){ setStatus("Saved to your account"); return; }
+  if (!navigator.onLine){ setStatus("Offline. Saved on this device and will sync later."); return; }
+  flushing = true; setStatus("Syncing…");
+  try {
+    const ups = ids.filter(id => p[id] === "up").map(id => entries.find(e => e.id === id)).filter(Boolean)
+      .map(e => ({user_id: user.id, id: e.id, kind: e.kind, data: clean(e), updated_at: new Date().toISOString()}));
+    const dels = ids.filter(id => p[id] === "del");
+    for (let i = 0; i < ups.length; i += 200){
+      const r = await sb.from("entries").upsert(ups.slice(i, i+200), {onConflict: "user_id,id"});
+      if (r.error) throw r.error;
+    }
+    if (dels.length){ const r = await sb.from("entries").delete().in("id", dels); if (r.error) throw r.error; }
+    const now = pendRead(); ids.forEach(id => { if (now[id] === p[id]) delete now[id]; }); pendWrite(now);
+    setStatus(Object.keys(now).length ? "Syncing…" : "Saved to your account");
+  } catch(err){
+    setStatus("Couldn't sync just now. Saved on this device and will try again.");
+  } finally {
+    flushing = false;
+    if (flushAgain){ flushAgain = false; flushSoon(); }
+  }
+}
+let lastPull = 0;
+async function pull(force){
+  if (mode !== "cloud" || !user || !navigator.onLine) return;
+  if (!force && Date.now() - lastPull < 20000) return;
+  lastPull = Date.now();
+  try {
+    let rows = [], from = 0;
+    for (;;){
+      const r = await sb.from("entries").select("id,data").order("id").range(from, from + 999);
+      if (r.error) throw r.error;
+      rows = rows.concat(r.data || []);
+      if (!r.data || r.data.length < 1000) break;
+      from += 1000;
+    }
+    const p = pendRead();
+    const map = new Map(rows.map(r => [r.id, r.data]));
+    entries.forEach(e => { if (p[e.id] === "up") map.set(e.id, e); });
+    Object.keys(p).forEach(id => { if (p[id] === "del") map.delete(id); });
+    entries = [...map.values()];
+    lsWrite(); render(); refreshForms();
+    flush();
+  } catch(err){ setStatus("Couldn't reach your account. Showing this device's copy."); }
+}
+function refreshForms(){ if (!editing.meal && !editing.poop) setLogDay(logDay); }
+
+/* account screens */
+let authMode = "login";
+function setAuthMode(m){
+  authMode = m;
+  const t = {login:"Log in", signup:"Create your account", reset:"Reset your password", newpass:"Choose a new password"}[m];
+  $("#authTitle").textContent = t;
+  $("#authSubmit").textContent = {login:"Log in", signup:"Create account", reset:"Email me a reset link", newpass:"Save new password"}[m];
+  $("#authIntro").textContent = {login:"Your diary is saved to your account, so you can open it on any phone, tablet or computer.", signup:"Use an email you can check. Passwords need at least 8 characters.", reset:"Enter your email and we'll send you a link to choose a new password.", newpass:"Type a new password for your account."}[m];
+  $("#authEmailWrap").hidden = m === "newpass";
+  $("#authPassWrap").hidden = m === "reset";
+  $("#authPass").autocomplete = m === "login" ? "current-password" : "new-password";
+  $("#toSignup").hidden = m !== "login"; $("#toLogin").hidden = m === "login" || m === "newpass"; $("#toReset").hidden = m !== "login";
+  $("#authToast").textContent = "";
+}
+function authMsg(t, bad){ const el = $("#authToast"); el.textContent = t; el.style.color = bad ? "var(--sym)" : "var(--ok)"; }
+function showAuth(on){
+  $("#authView").hidden = !on; $("#tabs").hidden = on;
+  if (on){ VIEWS.forEach(n => $("#view-"+n).hidden = true); $("#demoBanner").hidden = true; $("#acctLine").hidden = true; setStatus(""); }
+}
+$("#toSignup").onclick = () => setAuthMode("signup");
+$("#toLogin").onclick = () => setAuthMode("login");
+$("#toReset").onclick = () => setAuthMode("reset");
+$("#authForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!sb){ authMsg("The sign-in service didn't load. Check your internet connection and reload the page.", true); return; }
+  const email = $("#authEmail").value.trim(), pass = $("#authPass").value;
+  const btn = $("#authSubmit"); btn.disabled = true; authMsg("");
+  try {
+    if (authMode === "login"){
+      const r = await sb.auth.signInWithPassword({email, password: pass});
+      if (r.error) throw r.error;
+    } else if (authMode === "signup"){
+      if (pass.length < 8) throw {message:"Passwords need at least 8 characters."};
+      const r = await sb.auth.signUp({email, password: pass, options: {emailRedirectTo: location.origin + location.pathname}});
+      if (r.error) throw r.error;
+      if (!r.data.session){ setAuthMode("login"); $("#authEmail").value = email; authMsg("Nearly there. We've sent a link to " + email + ". Open it to confirm your account, then log in here."); }
+    } else if (authMode === "reset"){
+      const r = await sb.auth.resetPasswordForEmail(email, {redirectTo: location.origin + location.pathname});
+      if (r.error) throw r.error;
+      authMsg("If there's an account for " + email + ", a reset link is on its way. Check your inbox.");
+    } else if (authMode === "newpass"){
+      if (pass.length < 8) throw {message:"Passwords need at least 8 characters."};
+      const r = await sb.auth.updateUser({password: pass});
+      if (r.error) throw r.error;
+      const ses = await sb.auth.getSession();
+      if (ses.data.session) await startUser(ses.data.session.user);
+    }
+  } catch(err){
+    const m = String(err && err.message || "");
+    authMsg(/invalid login/i.test(m) ? "That email and password don't match. Check them, or reset your password." :
+            /not confirmed/i.test(m) ? "Confirm your email first. Look for the link we sent you." :
+            /already registered/i.test(m) ? "There's already an account with that email. Log in instead." :
+            /fetch|network/i.test(m) ? "Couldn't connect. Check your internet connection and try again." :
+            (m || "Something went wrong. Try again."), true);
+  } finally { btn.disabled = false; }
+});
+$("#signOutBtn").onclick = async () => {
+  const pend = Object.keys(pendRead()).length;
+  if (pend && $("#signOutBtn").dataset.sure !== "1"){
+    $("#signOutBtn").dataset.sure = "1"; $("#signOutBtn").textContent = "Log out anyway";
+    setStatus(pend + " change" + (pend===1?" hasn't":"s haven't") + " synced yet. Go online first, or they'll be lost.");
+    return;
+  }
+  try { localStorage.removeItem(storeKey()); localStorage.removeItem(pendKey()); } catch(e){}
+  await sb.auth.signOut();
+};
+async function startUser(u){
+  if (user && user.id === u.id && mode === "cloud") return;
+  user = u; mode = "cloud";
+  $("#signOutBtn").dataset.sure = ""; $("#signOutBtn").textContent = "Log out";
+  $("#acctEmail").textContent = u.email || "";
+  entries = lsRead();
+  // anything logged on this device before logging in moves into the account
+  let anon = []; try { anon = JSON.parse(localStorage.getItem(LS_KEY) || "[]") || []; } catch(e){}
+  if (anon.length){
+    const ids = new Set(entries.map(e => e.id));
+    anon.forEach(a => { if (!ids.has(a.id)){ entries.push(a); } });
+    const p = pendRead(); anon.forEach(a => p[a.id] = "up"); pendWrite(p);
+    lsWrite(); try { localStorage.removeItem(LS_KEY); } catch(e){}
+  }
+  showAuth(false); $("#acctLine").hidden = false;
+  let startView = "log"; try { startView = localStorage.getItem("tummylog.view") || "log"; } catch(e){}
+  setLogDay(dayKey(Date.now()));
+  showView(startView);
+  setStatus("Loading your log…");
+  await pull(true);
+}
+function stopUser(){
+  user = null; mode = "local"; entries = []; demo = null;
+  setAuthMode("login"); showAuth(true);
+}
+async function startCloud(){
+  showAuth(true); setAuthMode("login");
+  if (!window.supabase || !window.supabase.createClient){ authMsg("The sign-in service didn't load. Check your internet connection and reload the page.", true); return; }
+  sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: true}});
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY"){ showAuth(true); setAuthMode("newpass"); return; }
+    if (session && session.user){ if (authMode !== "newpass") setTimeout(() => startUser(session.user), 0); }
+    else if (event === "SIGNED_OUT") stopUser();
+  });
+  const ses = await sb.auth.getSession();
+  if (ses.data && ses.data.session && authMode !== "newpass") await startUser(ses.data.session.user);
+  window.addEventListener("online", () => { flush(); pull(true); });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") pull(false); });
+}
 function setStatus(t){ $("#status").textContent = t; }
 function list(){ return demo || entries; }
 function byKind(k){ return list().filter(e => e.kind === k); }
@@ -751,12 +947,14 @@ async function saveEntry(e){
   if (mode === "db"){
     try { await col.doc(e.id).set(clean(e)); }
     catch(err){ setStatus("Couldn't save to your account. Kept on this device."); e._local = true; lsWrite(); }
-  } else { lsWrite(); }
+  } else if (mode === "cloud"){ lsWrite(); queue(e.id, "up"); }
+  else { lsWrite(); }
 }
 async function deleteEntry(id){
   if (demo){ demo = demo.filter(x=>x.id!==id); render(); return; }
   entries = entries.filter(x=>x.id!==id); render();
   if (mode === "db"){ try { await col.doc(id).delete(); } catch(err){ setStatus("Couldn't delete from your account. Try again."); } }
+  else if (mode === "cloud"){ lsWrite(); queue(id, "del"); }
   else lsWrite();
 }
 
@@ -1731,6 +1929,9 @@ function renderSafety(){
   if (inClaude){
     $("#storeNote").textContent = mode === "db" ? "Your log is saved to your Claude account, so it's kept when you close the page and syncs across your devices." : "Your log is saved in this browser.";
     $("#safetyTips").innerHTML = "<li>Last backup: " + esc(when) + ".</li>";
+  } else if (mode === "cloud"){
+    $("#storeNote").textContent = "Your log is saved to your account (" + (user && user.email || "") + "), so you can log in on any device and it's all there. A copy is also kept on this device so it works without signal and syncs when you're back online.";
+    $("#safetyTips").innerHTML = ["Last backup: " + when + ". A backup file is optional, but handy to keep a copy of your own.", "Log out on shared or borrowed devices."].map(t => "<li>" + esc(t) + "</li>").join("");
   } else {
     $("#storeNote").textContent = "Your log is saved in this browser on this device. It stays when you close the page or restart your phone, but it can be lost if browser data is cleared or the phone is replaced.";
     $("#safetyTips").innerHTML = [
@@ -1741,7 +1942,7 @@ function renderSafety(){
     ].map(t => "<li>" + esc(t) + "</li>").join("");
   }
   const real = entries.filter(e => e.kind !== "recipe").length;
-  const nag = !demo && real >= 10 && (!lb || Date.now() - lb > 7*DAY) && !(inClaude && mode === "db");
+  const nag = !demo && real >= 10 && (!lb || Date.now() - lb > 7*DAY) && mode === "local";
   $("#backupNag").hidden = !nag;
   $("#backupNagText").textContent = lb ? "Your last backup was " + when + "." : "You haven't backed up your log yet.";
 }
@@ -1761,6 +1962,7 @@ $("#exportBtn").onclick = async () => {
 /* ---------- views ---------- */
 const VIEWS = ["log","diary","calendar","recipes","patterns"];
 function showView(v){
+  if (cloudConfigured && !user) return;
   if (!VIEWS.includes(v)) v = "log";
   VIEWS.forEach(n => { $("#view-"+n).hidden = n!==v; $("#tab-"+n).setAttribute("aria-selected", String(n===v)); });
   if (v !== "log") stopCamera();
@@ -1780,13 +1982,17 @@ function render(){
 }
 
 /* ---------- boot ---------- */
-entries = lsRead();
 $("#exportBtn").hidden = inClaude;
 resetMeal(); resetPoop(); resetRecipe();
-setLogDay(dayKey(Date.now()));
-let startView = "log"; try { startView = localStorage.getItem("tummylog.view") || "log"; } catch(e){}
-showView(startView);
-connect();
+if (cloudConfigured){
+  startCloud();
+} else {
+  entries = lsRead();
+  setLogDay(dayKey(Date.now()));
+  let startView = "log"; try { startView = localStorage.getItem("tummylog.view") || "log"; } catch(e){}
+  showView(startView);
+  connect();
+}
 })();
 </script>
 

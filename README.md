@@ -24,23 +24,26 @@ A built-in list of around 300 common foods and ingredients gives each one its fo
 
 Tap **Scan a barcode** on the meal form. It uses the phone's camera, or you can take a photo of the barcode or type the number. The product's name and ingredients come from [Open Food Facts](https://world.openfoodfacts.org), a free public food database, and you pick which ones to add. Scanning needs the site to be served over HTTPS (Vercel and GitHub Pages both do this) and an internet connection. Some products aren't in the database; those have to be typed in by hand.
 
-## Keeping your data safe
+## Accounts and syncing
 
-On the website, the log is saved in the browser on that device (localStorage). It stays when the page is closed or the phone restarts. The app also asks the browser to treat its storage as persistent. It can still be lost if:
+When `config.js` has a Supabase project's URL and anon key, the app asks people to **create an account or log in** (email and password). Each person's diary is saved to their account, so they can log in on any phone, tablet or computer and see the same data. A copy is kept on the device so it works without signal; changes made offline sync when the connection comes back. Logging out removes the copy from that device. Anything logged on a device before logging in is moved into the account the first time someone logs in there. Password reset by email is included.
 
-- browser data or site data is cleared
-- it's used in a private or incognito window
-- on iPhone, Safari clears data for websites not visited for 7 days, unless the site was added to the Home Screen and is opened from there
-- the phone is lost or replaced
+Each person can only read and change their own entries. This is enforced by the database's row level security rules in `supabase/schema.sql`, not just by the app.
 
-So:
+### One-time Supabase setup
 
-1. **Add it to the Home Screen.** iPhone: Share → Add to Home Screen. Android (Chrome): menu → Add to Home screen / Install app. It then opens like an app, with its own icon.
-2. **Download a backup now and then.** Diary → Keep your log safe → Download a backup saves a `.json` file. Save it to email or a cloud drive. A reminder appears on the Log page if there's no backup in the last week. **Restore from a backup** loads it back on any device.
+1. Create a free project at [supabase.com](https://supabase.com).
+2. **SQL Editor → New query**: paste the contents of `supabase/schema.sql` and click **Run**.
+3. **Authentication → URL Configuration**: set **Site URL** to the app's web address (for example `https://tummy-log.vercel.app`) and add the same address under **Redirect URLs**. This is where confirmation and password-reset emails send people.
+4. **Project Settings → API** (or **Data API**): copy the **Project URL** and the **anon public** key into `config.js`, then commit and push. The anon key is designed to be public; never put the `service_role` key in the app.
 
-Opened as a Claude artifact, entries are saved to the viewer's Claude account instead, and sync across their devices. Barcode scanning doesn't work inside Claude.
+If `config.js` is left empty, the app runs without accounts and keeps data in the browser on each device (see below).
 
-For automatic syncing between devices on the website, the app would need accounts and a database (for example Supabase); it doesn't have that yet.
+## Without accounts
+
+The log is saved in the browser on that device (localStorage). It stays when the page is closed, but can be lost if browser data is cleared, in a private window, on iPhone if the site isn't opened for 7 days (unless it's on the Home Screen), or if the phone is replaced. Add it to the Home Screen, and use **Diary → Keep your log safe → Download a backup** now and then. **Restore from a backup** loads it back on any device.
+
+Opened as a Claude artifact, entries are saved to the viewer's Claude account instead. Barcode scanning doesn't work inside Claude.
 
 ## Hosting
 
